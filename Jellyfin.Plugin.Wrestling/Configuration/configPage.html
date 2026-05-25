@@ -27,6 +27,12 @@
                         </label>
                     </div>
                     <div class="inputContainer">
+                        <textarea is="emby-textarea" id="ManualMappingsText" label="Manual PPV mappings"></textarea>
+                        <div class="fieldDescription">
+                            One block per PPV. Use Title, Year, Date, CageMatch, then Matches. Separate multiple PPVs with a line containing only ---.
+                        </div>
+                    </div>
+                    <div class="inputContainer">
                         <textarea is="emby-textarea" id="PendingManualLookups" label="Manual lookup queue" readonly></textarea>
                     </div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
@@ -47,6 +53,7 @@
                     document.querySelector('#CrawlDelaySeconds').value = config.CrawlDelaySeconds || 527;
                     document.querySelector('#UserAgent').value = config.UserAgent || 'Jellyfin.Plugin.Wrestling/1.0';
                     document.querySelector('#IncludeRatingsInOverview').checked = config.IncludeRatingsInOverview;
+                    document.querySelector('#ManualMappingsText').value = config.ManualMappingsText || exampleMappings(config.ManualMappings || []);
                     document.querySelector('#PendingManualLookups').value = (config.PendingManualLookups || []).map(function (item) {
                         return [item.Name, item.Year || '', item.PremiereDate || '', item.Reason || ''].join(' | ');
                     }).join('\n');
@@ -62,12 +69,39 @@
                     config.CrawlDelaySeconds = parseInt(document.querySelector('#CrawlDelaySeconds').value || '527', 10);
                     config.UserAgent = document.querySelector('#UserAgent').value || 'Jellyfin.Plugin.Wrestling/1.0';
                     config.IncludeRatingsInOverview = document.querySelector('#IncludeRatingsInOverview').checked;
+                    config.ManualMappingsText = document.querySelector('#ManualMappingsText').value || '';
                     return ApiClient.updatePluginConfiguration(WrestlingConfig.pluginId, config);
                 }).then(function () {
                     Dashboard.processPluginConfigurationUpdateResult();
                 });
                 return false;
             });
+
+            function exampleMappings(existingMappings) {
+                if (existingMappings.length) {
+                    return existingMappings.map(function (mapping) {
+                        return [
+                            'Title: ' + (mapping.Title || ''),
+                            'Year: ' + (mapping.Year || ''),
+                            'Date: ' + (mapping.PremiereDate || ''),
+                            'CageMatch: ' + (mapping.CagematchEventId || ''),
+                            'Matches:',
+                            mapping.MatchCardText || ''
+                        ].join('\n');
+                    }).join('\n\n---\n');
+                }
+
+                return [
+                    'Title: ECW Heat Wave 1998',
+                    'Year: 1998',
+                    'Date: ',
+                    'CageMatch: ',
+                    'Matches:',
+                    '1. Tommy Dreamer, Sandman & Spike Dudley vs. The Dudley Boyz | Dudleyville Street Fight | |',
+                    '2. Taz vs. Bam Bam Bigelow | FTW Championship Match | |',
+                    '3. Sabu & Rob Van Dam vs. Hayabusa & Jinsei Shinzaki | Tag Team Match | |'
+                ].join('\n');
+            }
         </script>
     </div>
 </body>

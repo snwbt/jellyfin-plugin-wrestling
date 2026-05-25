@@ -30,6 +30,23 @@ to a Jellyfin plugin folder such as:
 Restart Jellyfin, enable the metadata provider for your movie library, then
 refresh metadata for wrestling PPVs.
 
+## Manual Match Cards
+
+Open the Wrestling plugin settings and add one mapping block per PPV:
+
+```text
+Title: ECW Heat Wave 1998
+Year: 1998
+Date:
+CageMatch:
+Matches:
+1. Tommy Dreamer, Sandman & Spike Dudley vs. The Dudley Boyz | Dudleyville Street Fight | |
+2. Taz vs. Bam Bam Bigelow | FTW Championship Match | |
+```
+
+After saving, refresh metadata for the movie or library. The plugin writes the
+match card into the movie overview.
+
 ## CageMatch IDs
 
 For reliable matching, add a provider id named `CageMatch` to PPV metadata when

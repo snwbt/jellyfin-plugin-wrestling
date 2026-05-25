@@ -20,6 +20,8 @@ public class PluginConfiguration : BasePluginConfiguration
         UserAgent = "Jellyfin.Plugin.Wrestling/1.0";
         CachedEvents = [];
         PendingManualLookups = [];
+        ManualMappings = [];
+        ManualMappingsText = string.Empty;
     }
 
     /// <summary>
@@ -56,6 +58,47 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets items that need a manual CageMatch event id.
     /// </summary>
     public List<ManualLookupRequest> PendingManualLookups { get; set; }
+
+    /// <summary>
+    /// Gets or sets manually configured PPV mappings.
+    /// </summary>
+    public List<ManualPpvMapping> ManualMappings { get; set; }
+
+    /// <summary>
+    /// Gets or sets manually configured PPV mappings as editable text.
+    /// </summary>
+    public string ManualMappingsText { get; set; }
+}
+
+/// <summary>
+/// Manual mapping between a Jellyfin PPV movie and wrestling event metadata.
+/// </summary>
+public class ManualPpvMapping
+{
+    /// <summary>
+    /// Gets or sets the movie title to match.
+    /// </summary>
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the production year to match.
+    /// </summary>
+    public int? Year { get; set; }
+
+    /// <summary>
+    /// Gets or sets the premiere date to match.
+    /// </summary>
+    public DateTime? PremiereDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the CageMatch event id or URL.
+    /// </summary>
+    public string CagematchEventId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets pasted match-card text.
+    /// </summary>
+    public string MatchCardText { get; set; } = string.Empty;
 }
 
 /// <summary>

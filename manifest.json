@@ -8,6 +8,14 @@
         "category":  "Metadata",
         "versions":  [
                          {
+                             "version":  "1.0.0.2",
+                             "changelog":  "Add manual PPV mappings and pasted match-card fallback for visible movie overviews.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/v1.0.0.2/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.2.zip",
+                             "checksum":  "5db47c5cd8a6a0109b76c64a6daa3322",
+                             "timestamp":  "2026-05-25T09:02:00Z"
+                         },
+                         {
                              "version":  "1.0.0.1",
                              "changelog":  "Rebuild against Jellyfin 10.11.0 and package only plugin-owned artifacts.",
                              "targetAbi":  "10.11.0.0",

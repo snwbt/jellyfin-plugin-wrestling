@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.Wrestling.Cagematch;
+using Jellyfin.Plugin.Wrestling.Configuration;
 using Jellyfin.Plugin.Wrestling.Models;
 using Jellyfin.Plugin.Wrestling.Services;
 using MediaBrowser.Controller.Entities.Movies;
@@ -46,7 +48,8 @@ public class WrestlingMovieMetadataProvider : IRemoteMetadataProvider<Movie, Mov
     /// <inheritdoc />
     public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(MovieInfo searchInfo, CancellationToken cancellationToken)
     {
-        var providerId = TryGetCagematchId(searchInfo.ProviderIds);
+        var manualMapping = ManualMappingService.FindMapping(GetManualMappings(), searchInfo.Name, searchInfo.Year, searchInfo.PremiereDate);
+        var providerId = TryGetCagematchId(searchInfo.ProviderIds) ?? TryGetCagematchId(manualMapping?.CagematchEventId);
         if (!string.IsNullOrWhiteSpace(providerId))
         {
             return
@@ -57,6 +60,19 @@ public class WrestlingMovieMetadataProvider : IRemoteMetadataProvider<Movie, Mov
                     ProductionYear = searchInfo.Year,
                     PremiereDate = searchInfo.PremiereDate,
                     ProviderIds = new Dictionary<string, string> { [ProviderId] = providerId }
+                }
+            ];
+        }
+
+        if (manualMapping is not null && !string.IsNullOrWhiteSpace(manualMapping.MatchCardText))
+        {
+            return
+            [
+                new RemoteSearchResult
+                {
+                    Name = searchInfo.Name,
+                    ProductionYear = searchInfo.Year,
+                    PremiereDate = searchInfo.PremiereDate
                 }
             ];
         }
@@ -87,18 +103,25 @@ public class WrestlingMovieMetadataProvider : IRemoteMetadataProvider<Movie, Mov
     /// <inheritdoc />
     public async Task<MetadataResult<Movie>> GetMetadata(MovieInfo info, CancellationToken cancellationToken)
     {
+        var config = Plugin.Instance?.Configuration;
         var lookupKey = LookupKey.Build(info.Name, info.Year, info.PremiereDate);
-        var providerId = TryGetCagematchId(info.ProviderIds);
+        var manualMappings = GetManualMappings();
+        var manualMapping = ManualMappingService.FindMapping(manualMappings, info.Name, info.Year, info.PremiereDate);
+        var providerId = TryGetCagematchId(info.ProviderIds) ?? TryGetCagematchId(manualMapping?.CagematchEventId);
         WrestlingEvent? wrestlingEvent = null;
 
         if (!string.IsNullOrWhiteSpace(providerId))
         {
             wrestlingEvent = _cache.GetByCagematchId(providerId)
                 ?? await FetchAndCacheByIdAsync(providerId, lookupKey, cancellationToken).ConfigureAwait(false);
+
+            wrestlingEvent ??= BuildAndCacheManualEvent(manualMapping, lookupKey);
         }
         else
         {
-            wrestlingEvent = _cache.GetByLookupKey(lookupKey);
+            wrestlingEvent = _cache.GetByLookupKey(lookupKey)
+                ?? BuildAndCacheManualEvent(manualMapping, lookupKey);
+
             if (wrestlingEvent is null)
             {
                 var search = await _cagematchClient.SearchEventAsync(info.Name, info.Year, info.PremiereDate, cancellationToken).ConfigureAwait(false);
@@ -121,7 +144,7 @@ public class WrestlingMovieMetadataProvider : IRemoteMetadataProvider<Movie, Mov
         var movie = new Movie
         {
             Name = info.Name ?? wrestlingEvent.Name,
-            Overview = MatchCardFormatter.AppendOrReplace(null, wrestlingEvent, Plugin.Instance?.Configuration.IncludeRatingsInOverview ?? true),
+            Overview = MatchCardFormatter.AppendOrReplace(null, wrestlingEvent, config?.IncludeRatingsInOverview ?? true),
             PremiereDate = wrestlingEvent.EventDate ?? info.PremiereDate,
             ProductionYear = wrestlingEvent.EventDate?.Year ?? info.Year
         };
@@ -157,6 +180,40 @@ public class WrestlingMovieMetadataProvider : IRemoteMetadataProvider<Movie, Mov
         }
 
         return null;
+    }
+
+    private static string? TryGetCagematchId(string? providerId)
+    {
+        return CagematchIds.TryNormalizeEventId(providerId, out var normalized) ? normalized : null;
+    }
+
+    private static List<ManualPpvMapping> GetManualMappings()
+    {
+        var config = Plugin.Instance?.Configuration;
+        if (config is null)
+        {
+            return [];
+        }
+
+        return config.ManualMappings
+            .Concat(ManualMappingTextParser.Parse(config.ManualMappingsText))
+            .ToList();
+    }
+
+    private WrestlingEvent? BuildAndCacheManualEvent(ManualPpvMapping? mapping, string lookupKey)
+    {
+        if (mapping is null)
+        {
+            return null;
+        }
+
+        var wrestlingEvent = ManualMappingService.BuildEventFromMapping(mapping, lookupKey);
+        if (wrestlingEvent is not null)
+        {
+            _cache.Save(wrestlingEvent);
+        }
+
+        return wrestlingEvent;
     }
 
     private async Task<WrestlingEvent?> FetchAndCacheByIdAsync(string providerId, string lookupKey, CancellationToken cancellationToken)

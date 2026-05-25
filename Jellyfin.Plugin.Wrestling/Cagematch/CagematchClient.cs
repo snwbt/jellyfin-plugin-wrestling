@@ -230,7 +230,15 @@ public static partial class CagematchIds
             return false;
         }
 
-        var match = EventIdRegex().Match(WebUtility.HtmlDecode(input));
+        var decoded = WebUtility.HtmlDecode(input);
+        var nrMatch = EventNumberRegex().Match(decoded);
+        if (nrMatch.Success)
+        {
+            eventId = nrMatch.Groups["id"].Value;
+            return true;
+        }
+
+        var match = StandaloneEventIdRegex().Match(decoded);
         if (!match.Success)
         {
             return false;
@@ -248,6 +256,9 @@ public static partial class CagematchIds
         return string.Create(CultureInfo.InvariantCulture, $"https://www.cagematch.net/?id=1&nr={eventId}");
     }
 
-    [GeneratedRegex(@"(?:nr=)?(?<id>\d{1,12})", RegexOptions.IgnoreCase)]
-    private static partial Regex EventIdRegex();
+    [GeneratedRegex(@"(?:[?&]|^)nr=(?<id>\d{1,12})", RegexOptions.IgnoreCase)]
+    private static partial Regex EventNumberRegex();
+
+    [GeneratedRegex(@"^\s*(?<id>\d{1,12})\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex StandaloneEventIdRegex();
 }

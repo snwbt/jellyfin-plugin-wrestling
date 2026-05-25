@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Repo,
 
-    [string]$Version = "1.0.0.1",
+    [string]$Version = "1.0.0.2",
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
@@ -84,7 +84,7 @@ else {
 
 $newVersion = [ordered]@{
     version = $Version
-    changelog = "Rebuild against Jellyfin 10.11.0 and package only plugin-owned artifacts."
+    changelog = "Add manual PPV mappings and pasted match-card fallback for visible movie overviews."
     targetAbi = $TargetAbi
     sourceUrl = $sourceUrl
     checksum = $checksum
