@@ -11,9 +11,9 @@
                              "version":  "1.0.0.1",
                              "changelog":  "Rebuild against Jellyfin 10.11.0 and package only plugin-owned artifacts.",
                              "targetAbi":  "10.11.0.0",
-                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/main/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.1.zip",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/v1.0.0.1/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.1.zip",
                              "checksum":  "4f24df0c319609930ac1f5327c297778",
-                             "timestamp":  "2026-05-25T08:38:11Z"
+                             "timestamp":  "2026-05-25T08:42:42Z"
                          },
                          {
                              "version":  "1.0.0.0",

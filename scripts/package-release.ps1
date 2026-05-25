@@ -79,7 +79,7 @@ if ($UseGitHubReleaseUrl) {
     $sourceUrl = "https://github.com/$Owner/$Repo/releases/download/v$Version/$zipName"
 }
 else {
-    $sourceUrl = "https://raw.githubusercontent.com/$Owner/$Repo/main/release-assets/$zipName"
+    $sourceUrl = "https://raw.githubusercontent.com/$Owner/$Repo/v$Version/release-assets/$zipName"
 }
 
 $newVersion = [ordered]@{
