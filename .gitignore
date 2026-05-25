@@ -1,0 +1,10 @@
+bin/
+obj/
+.appdata/
+.dotnet9/
+.dotnet_home/
+.nuget/
+.dotnet-install.ps1
+dist/*.zip
+*.user
+*.suo

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wrestling</title>
+</head>
+<body>
+    <div id="WrestlingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="WrestlingConfigForm">
+                    <div class="inputContainer">
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="EnableAutomaticLookup" />
+                            <span>Enable automatic CageMatch search when no event ID exists</span>
+                        </label>
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="CrawlDelaySeconds" min="1" label="CageMatch request delay in seconds" />
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="UserAgent" label="HTTP user agent" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="IncludeRatingsInOverview" />
+                            <span>Include ratings in the match card overview</span>
+                        </label>
+                    </div>
+                    <div class="inputContainer">
+                        <textarea is="emby-textarea" id="PendingManualLookups" label="Manual lookup queue" readonly></textarea>
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var WrestlingConfig = {
+                pluginId: '89e3cfaf-ef94-4dd5-9134-bab43eaf993d'
+            };
+
+            document.querySelector('#WrestlingConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(WrestlingConfig.pluginId).then(function (config) {
+                    document.querySelector('#EnableAutomaticLookup').checked = config.EnableAutomaticLookup;
+                    document.querySelector('#CrawlDelaySeconds').value = config.CrawlDelaySeconds || 527;
+                    document.querySelector('#UserAgent').value = config.UserAgent || 'Jellyfin.Plugin.Wrestling/1.0';
+                    document.querySelector('#IncludeRatingsInOverview').checked = config.IncludeRatingsInOverview;
+                    document.querySelector('#PendingManualLookups').value = (config.PendingManualLookups || []).map(function (item) {
+                        return [item.Name, item.Year || '', item.PremiereDate || '', item.Reason || ''].join(' | ');
+                    }).join('\n');
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#WrestlingConfigForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(WrestlingConfig.pluginId).then(function (config) {
+                    config.EnableAutomaticLookup = document.querySelector('#EnableAutomaticLookup').checked;
+                    config.CrawlDelaySeconds = parseInt(document.querySelector('#CrawlDelaySeconds').value || '527', 10);
+                    config.UserAgent = document.querySelector('#UserAgent').value || 'Jellyfin.Plugin.Wrestling/1.0';
+                    config.IncludeRatingsInOverview = document.querySelector('#IncludeRatingsInOverview').checked;
+                    return ApiClient.updatePluginConfiguration(WrestlingConfig.pluginId, config);
+                }).then(function () {
+                    Dashboard.processPluginConfigurationUpdateResult();
+                });
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>

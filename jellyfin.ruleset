@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RuleSet Name="Jellyfin.Plugin.Wrestling" Description="Local analyzer rules" ToolsVersion="16.0">
+  <Rules AnalyzerId="Microsoft.CodeAnalysis.NetAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.NetAnalyzers">
+    <Rule Id="CA1303" Action="None" />
+    <Rule Id="CA1002" Action="None" />
+    <Rule Id="CA1032" Action="None" />
+    <Rule Id="CA1054" Action="None" />
+    <Rule Id="CA1055" Action="None" />
+    <Rule Id="CA1056" Action="None" />
+    <Rule Id="CA1062" Action="None" />
+    <Rule Id="CA1707" Action="None" />
+    <Rule Id="CA1724" Action="None" />
+    <Rule Id="CA1812" Action="None" />
+    <Rule Id="CA1848" Action="None" />
+    <Rule Id="CA1859" Action="None" />
+    <Rule Id="CA2227" Action="None" />
+  </Rules>
+</RuleSet>
