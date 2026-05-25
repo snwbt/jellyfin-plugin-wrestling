@@ -9,6 +9,8 @@ param(
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
+    [switch]$UseGitHubReleaseUrl,
+
     [switch]$ForcePackage
 )
 
@@ -23,10 +25,12 @@ if (-not (Test-Path $dotnet)) {
 $publishDir = Join-Path $root "bin\plugin"
 $packageStagingDir = Join-Path $root "bin\package"
 $distDir = Join-Path $root "dist"
+$releaseAssetsDir = Join-Path $root "release-assets"
 $zipName = "Jellyfin.Plugin.Wrestling_$Version.zip"
 $zipPath = Join-Path $distDir $zipName
 
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+New-Item -ItemType Directory -Force -Path $releaseAssetsDir | Out-Null
 
 if ((Test-Path $zipPath) -and -not $ForcePackage) {
     Write-Host "Using existing $zipPath"
@@ -68,7 +72,15 @@ else {
 
 $checksum = (Get-FileHash -Algorithm MD5 -LiteralPath $zipPath).Hash.ToLowerInvariant()
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-$sourceUrl = "https://github.com/$Owner/$Repo/releases/download/v$Version/$zipName"
+$releaseAssetPath = Join-Path $releaseAssetsDir $zipName
+Copy-Item -LiteralPath $zipPath -Destination $releaseAssetPath -Force
+
+if ($UseGitHubReleaseUrl) {
+    $sourceUrl = "https://github.com/$Owner/$Repo/releases/download/v$Version/$zipName"
+}
+else {
+    $sourceUrl = "https://raw.githubusercontent.com/$Owner/$Repo/main/release-assets/$zipName"
+}
 
 $newVersion = [ordered]@{
     version = $Version
@@ -106,8 +118,9 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($manifestPath, $json + [Environment]::NewLine, $utf8NoBom)
 
 Write-Host "Created $zipPath"
+Write-Host "Updated $releaseAssetPath"
 Write-Host "MD5: $checksum"
 Write-Host "Updated $manifestPath"
-Write-Host "Release upload URL should use tag v$Version"
+Write-Host "Tag should use v$Version"
 Write-Host "Jellyfin repo URL will be:"
 Write-Host "https://raw.githubusercontent.com/$Owner/$Repo/main/manifest.json"
