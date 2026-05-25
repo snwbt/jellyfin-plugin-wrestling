@@ -9,6 +9,8 @@ param(
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
+    [string]$SourceRef = "",
+
     [switch]$UseGitHubReleaseUrl,
 
     [switch]$ForcePackage
@@ -79,7 +81,11 @@ if ($UseGitHubReleaseUrl) {
     $sourceUrl = "https://github.com/$Owner/$Repo/releases/download/v$Version/$zipName"
 }
 else {
-    $sourceUrl = "https://raw.githubusercontent.com/$Owner/$Repo/v$Version/release-assets/$zipName"
+    if ([string]::IsNullOrWhiteSpace($SourceRef)) {
+        $SourceRef = "v$Version"
+    }
+
+    $sourceUrl = "https://raw.githubusercontent.com/$Owner/$Repo/$SourceRef/release-assets/$zipName"
 }
 
 $newVersion = [ordered]@{
