@@ -7,7 +7,9 @@ param(
 
     [string]$Version = "1.0.0.0",
     [string]$TargetAbi = "10.11.0.0",
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+
+    [switch]$ForcePackage
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,15 +27,20 @@ $zipPath = Join-Path $distDir $zipName
 
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 
-& $dotnet publish (Join-Path $root "Jellyfin.Plugin.Wrestling\Jellyfin.Plugin.Wrestling.csproj") `
-    --configuration $Configuration `
-    --output $publishDir
-
-if (Test-Path $zipPath) {
-    Remove-Item -LiteralPath $zipPath -Force
+if ((Test-Path $zipPath) -and -not $ForcePackage) {
+    Write-Host "Using existing $zipPath"
 }
+else {
+    & $dotnet publish (Join-Path $root "Jellyfin.Plugin.Wrestling\Jellyfin.Plugin.Wrestling.csproj") `
+        --configuration $Configuration `
+        --output $publishDir
 
-Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Force
+    if (Test-Path $zipPath) {
+        Remove-Item -LiteralPath $zipPath -Force
+    }
+
+    Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Force
+}
 
 $checksum = (Get-FileHash -Algorithm MD5 -LiteralPath $zipPath).Hash.ToLowerInvariant()
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -61,7 +68,9 @@ $manifest = @(
 )
 
 $manifestPath = Join-Path $root "manifest.json"
-$manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+$json = ConvertTo-Json -InputObject $manifest -Depth 10
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($manifestPath, $json + [Environment]::NewLine, $utf8NoBom)
 
 Write-Host "Created $zipPath"
 Write-Host "MD5: $checksum"

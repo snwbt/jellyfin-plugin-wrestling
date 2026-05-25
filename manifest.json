@@ -1,18 +1,20 @@
-﻿{
-    "guid":  "89e3cfaf-ef94-4dd5-9134-bab43eaf993d",
-    "name":  "Wrestling",
-    "description":  "Adds spoiler-safe wrestling match cards to Jellyfin pay-per-view movie pages.",
-    "overview":  "Wrestling match cards for PPVs",
-    "owner":  "snwbt",
-    "category":  "Metadata",
-    "versions":  [
-                     {
-                         "version":  "1.0.0.0",
-                         "changelog":  "Initial wrestling match card metadata provider.",
-                         "targetAbi":  "10.11.0.0",
-                         "sourceUrl":  "https://github.com/snwbt/jellyfin-plugin-wrestling/releases/download/v1.0.0.0/Jellyfin.Plugin.Wrestling_1.0.0.0.zip",
-                         "checksum":  "66df3ce726084f5c448458dc0e8488db",
-                         "timestamp":  "2026-05-25T08:01:42Z"
-                     }
-                 ]
-}
+[
+    {
+        "guid":  "89e3cfaf-ef94-4dd5-9134-bab43eaf993d",
+        "name":  "Wrestling",
+        "description":  "Adds spoiler-safe wrestling match cards to Jellyfin pay-per-view movie pages.",
+        "overview":  "Wrestling match cards for PPVs",
+        "owner":  "snwbt",
+        "category":  "Metadata",
+        "versions":  [
+                         {
+                             "version":  "1.0.0.0",
+                             "changelog":  "Initial wrestling match card metadata provider.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/snwbt/jellyfin-plugin-wrestling/releases/download/v1.0.0.0/Jellyfin.Plugin.Wrestling_1.0.0.0.zip",
+                             "checksum":  "66df3ce726084f5c448458dc0e8488db",
+                             "timestamp":  "2026-05-25T08:13:04Z"
+                         }
+                     ]
+    }
+]
