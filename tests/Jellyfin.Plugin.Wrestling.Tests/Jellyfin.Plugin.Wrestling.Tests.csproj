@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Jellyfin.Plugin.Wrestling\Jellyfin.Plugin.Wrestling.csproj" />
+    <ProjectReference Include="..\..\tools\Wrestling.CacheWorker\Wrestling.CacheWorker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

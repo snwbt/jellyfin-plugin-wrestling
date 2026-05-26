@@ -130,6 +130,13 @@
                         <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Last CageMatch status</span><span id="MetricCagematchStatus" class="wrestlingMetricValue">-</span></div>
                     </div>
 
+                    <div class="wrestlingGrid">
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Cache source</span><span id="MetricCacheSource" class="wrestlingMetricValue">-</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Cached events</span><span id="MetricCacheEvents" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Cached matches</span><span id="MetricCacheMatches" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Last cache sync</span><span id="MetricCacheSync" class="wrestlingMetricValue">-</span></div>
+                    </div>
+
                     <div class="inputContainer">
                         <label class="inputLabel">Queue log</label>
                         <div id="ScanLog" class="wrestlingLog"></div>
@@ -182,11 +189,13 @@
                 Promise.all([
                     ApiClient.getPluginConfiguration(WrestlingConfig.pluginId),
                     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Libraries'), dataType: 'json' }),
-                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Status'), dataType: 'json' })
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Status'), dataType: 'json' }),
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Cache/Status'), dataType: 'json' })
                 ]).then(function (responses) {
                     loadConfig(responses[0]);
                     loadLibraries(responses[1] || [], responses[0]);
                     renderStatus(responses[2] || {});
+                    renderCacheStatus(responses[3] || {});
                     document.querySelector('#ImportStatus').textContent = responses[0].LastImportResult || responses[0].lastImportResult || '';
                     Dashboard.hideLoadingMsg();
                     startPolling();
@@ -256,6 +265,7 @@
                     });
                 }).then(function (result) {
                     document.querySelector('#ImportStatus').textContent = result.Message || result.message || 'Import complete.';
+                    refreshCacheStatus();
                     Dashboard.hideLoadingMsg();
                 }).catch(function (err) {
                     document.querySelector('#ImportStatus').textContent = formatError('Import failed', err);
@@ -323,6 +333,15 @@
                     return result;
                 }).catch(function (err) {
                     renderError('Failed to refresh Wrestling scan status', err);
+                });
+            }
+
+            function refreshCacheStatus() {
+                return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Cache/Status'), dataType: 'json' }).then(function (result) {
+                    renderCacheStatus(result || {});
+                    return result;
+                }).catch(function (err) {
+                    document.querySelector('#ImportStatus').textContent = formatError('Failed to refresh cache status', err);
                 });
             }
 
@@ -398,6 +417,17 @@
                 }
 
                 document.querySelector('#ScanLog').textContent = lines.join('\n');
+            }
+
+            function renderCacheStatus(status) {
+                setText('#MetricCacheSource', get(status, 'Source') || '-');
+                setText('#MetricCacheEvents', get(status, 'ImportedEvents') || 0);
+                setText('#MetricCacheMatches', get(status, 'ImportedMatches') || 0);
+                setText('#MetricCacheSync', get(status, 'LastSyncUtc') || '-');
+                var syncResult = get(status, 'LastSyncResult') || get(status, 'LastImportResult') || '';
+                if (syncResult) {
+                    document.querySelector('#ImportStatus').textContent = syncResult;
+                }
             }
 
             function renderError(message, err) {

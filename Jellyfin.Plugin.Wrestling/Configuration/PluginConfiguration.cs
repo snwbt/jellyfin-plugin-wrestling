@@ -29,6 +29,8 @@ public class PluginConfiguration : BasePluginConfiguration
         LastApplyResult = string.Empty;
         LastScanResult = string.Empty;
         LastImportResult = string.Empty;
+        LastCacheSyncResult = string.Empty;
+        CacheSyncSource = string.Empty;
         LastCagematchUrl = string.Empty;
         LastCagematchStatus = string.Empty;
     }
@@ -122,6 +124,21 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the latest cache import summary.
     /// </summary>
     public string LastImportResult { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest external cache sync summary.
+    /// </summary>
+    public string LastCacheSyncResult { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest external cache sync source.
+    /// </summary>
+    public string CacheSyncSource { get; set; }
+
+    /// <summary>
+    /// Gets or sets when the latest external cache sync happened.
+    /// </summary>
+    public DateTime? LastCacheSyncUtc { get; set; }
 }
 
 /// <summary>
@@ -194,6 +211,11 @@ public class CachedWrestlingEvent
     /// Gets or sets cached matches.
     /// </summary>
     public List<CachedWrestlingMatch> Matches { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets where this cached event came from.
+    /// </summary>
+    public string CacheSource { get; set; } = string.Empty;
 }
 
 /// <summary>

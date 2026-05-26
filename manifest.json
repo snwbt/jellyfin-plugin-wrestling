@@ -8,6 +8,14 @@
         "category":  "Metadata",
         "versions":  [
                          {
+                             "version":  "1.0.0.6",
+                             "changelog":  "Add browser-worker cache sync endpoints and a companion visible browser cache worker.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/main/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.6.zip",
+                             "checksum":  "960cbb00d98fdf191662dcf31203b2b6",
+                             "timestamp":  "2026-05-26T15:53:59Z"
+                         },
+                         {
                              "version":  "1.0.0.5",
                              "changelog":  "Add blocked scan handling, readable diagnostics, cancel/clear controls, and CSV cache import.",
                              "targetAbi":  "10.11.0.0",

@@ -49,6 +49,24 @@ as `Date`, `Match Fixture`, `Match Type`, `Event`, `Rating on CageMatch`, `Votes
 and an optional CageMatch URL. Imported rows are grouped by event and date, then used
 before live CageMatch requests during scans.
 
+## Browser Cache Worker
+
+For automated CageMatch collection without running a browser inside Jellyfin, use the
+companion worker in `tools/Wrestling.CacheWorker`. It launches normal Edge or Chrome
+visibly, reads the plugin's selected-library queue, searches CageMatch at the configured
+crawl delay, parses event pages, and syncs normalized match cards back to the plugin.
+
+```powershell
+.\.dotnet9\dotnet.exe run --project .\tools\Wrestling.CacheWorker -- `
+  --jellyfin-url http://localhost:8096 `
+  --api-key YOUR_JELLYFIN_API_KEY `
+  --limit 3
+```
+
+Remove `--limit` for the full queue. The worker stops if CageMatch shows a forbidden,
+login, JavaScript, CAPTCHA, or Cloudflare-style gate. It does not spoof sessions,
+solve challenges, rotate IPs, or bypass access controls.
+
 ## Scheduled Scan
 
 Enable **scheduled background scan** in plugin settings to let Jellyfin's scheduled

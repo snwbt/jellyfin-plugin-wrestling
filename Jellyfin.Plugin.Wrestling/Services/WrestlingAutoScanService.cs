@@ -52,6 +52,11 @@ public interface IWrestlingAutoScanService
     /// Gets current scan status.
     /// </summary>
     WrestlingScanStatus GetStatus();
+
+    /// <summary>
+    /// Gets movie metadata for selected scan libraries.
+    /// </summary>
+    IReadOnlyList<WrestlingScanQueueItem> GetQueueItems();
 }
 
 /// <summary>
@@ -253,6 +258,23 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
         copy.LastResult = config.LastScanResult;
         copy.SelectedLibraries = GetSelectedLibraryNames();
         return copy;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<WrestlingScanQueueItem> GetQueueItems()
+    {
+        var selectedLibraries = GetSelectedLibraryNames();
+        return GetEligibleMovies(selectedLibraries)
+            .Select(movie => new WrestlingScanQueueItem
+            {
+                ItemId = movie.Id,
+                Name = movie.Name ?? string.Empty,
+                Year = movie.ProductionYear,
+                PremiereDate = movie.PremiereDate,
+                LookupKey = LookupKey.Build(movie.Name, movie.ProductionYear, movie.PremiereDate)
+            })
+            .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private async Task<WrestlingScanItemResult> ProcessMovieAsync(Movie movie, CancellationToken cancellationToken)
@@ -565,6 +587,37 @@ public class WrestlingScanItemResult
     public string Status { get; set; } = WrestlingScanItemStatus.Skipped;
 
     public string Reason { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Queue item metadata used by the external cache worker.
+/// </summary>
+public class WrestlingScanQueueItem
+{
+    /// <summary>
+    /// Gets or sets Jellyfin item id.
+    /// </summary>
+    public Guid ItemId { get; set; }
+
+    /// <summary>
+    /// Gets or sets movie title.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets production year.
+    /// </summary>
+    public int? Year { get; set; }
+
+    /// <summary>
+    /// Gets or sets premiere date.
+    /// </summary>
+    public DateTime? PremiereDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets normalized lookup key.
+    /// </summary>
+    public string LookupKey { get; set; } = string.Empty;
 }
 
 /// <summary>

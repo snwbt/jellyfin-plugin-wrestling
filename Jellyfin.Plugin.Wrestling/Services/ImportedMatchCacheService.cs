@@ -20,6 +20,16 @@ public interface IImportedMatchCacheService
     ImportedCacheImportResult ImportCsv(string csv);
 
     /// <summary>
+    /// Syncs normalized cache events from an external worker.
+    /// </summary>
+    ImportedCacheImportResult SyncEvents(ExternalCacheSyncRequest request);
+
+    /// <summary>
+    /// Gets imported cache status.
+    /// </summary>
+    ImportedCacheStatus GetStatus();
+
+    /// <summary>
     /// Finds an imported event for a Jellyfin movie.
     /// </summary>
     WrestlingEvent? FindEvent(string? title, int? year, DateTime? premiereDate);
@@ -155,6 +165,7 @@ public class ImportedMatchCacheService : IImportedMatchCacheService
                 EventDate = first.Date,
                 SourceUrl = first.Url,
                 CachedAtUtc = DateTime.UtcNow,
+                CacheSource = "CSV import",
                 Matches = group.Select((row, index) => new CachedWrestlingMatch
                 {
                     Order = index + 1,
@@ -173,6 +184,63 @@ public class ImportedMatchCacheService : IImportedMatchCacheService
         result.Message = string.Format(CultureInfo.InvariantCulture, "Imported {0} events and {1} matches.", result.ImportedEvents, result.ImportedMatches);
         SaveResult(result);
         return result;
+    }
+
+    /// <inheritdoc />
+    public ImportedCacheImportResult SyncEvents(ExternalCacheSyncRequest request)
+    {
+        var result = new ImportedCacheImportResult();
+        if (request.Events.Count == 0)
+        {
+            result.Message = "No cache events provided.";
+            SaveResult(result, request.Source);
+            return result;
+        }
+
+        var source = string.IsNullOrWhiteSpace(request.Source) ? "External cache" : request.Source.Trim();
+        var incoming = request.Events
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name) && item.Matches.Count > 0)
+            .Select(item => ToCached(item, source))
+            .ToList();
+
+        if (incoming.Count == 0)
+        {
+            result.Message = "No usable cache events provided.";
+            SaveResult(result, source);
+            return result;
+        }
+
+        var config = GetConfiguration();
+        config.ImportedEvents ??= [];
+        var incomingKeys = incoming.Select(item => item.LookupKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        config.ImportedEvents = config.ImportedEvents
+            .Where(item => !incomingKeys.Contains(item.LookupKey))
+            .Concat(incoming)
+            .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.EventDate)
+            .ToList();
+
+        result.ImportedEvents = incoming.Count;
+        result.ImportedMatches = incoming.Sum(item => item.Matches.Count);
+        result.Message = string.Format(CultureInfo.InvariantCulture, "Synced {0} events and {1} matches from {2}.", result.ImportedEvents, result.ImportedMatches, source);
+        SaveResult(result, source);
+        return result;
+    }
+
+    /// <inheritdoc />
+    public ImportedCacheStatus GetStatus()
+    {
+        var config = GetConfiguration();
+        config.ImportedEvents ??= [];
+        return new ImportedCacheStatus
+        {
+            ImportedEvents = config.ImportedEvents.Count,
+            ImportedMatches = config.ImportedEvents.Sum(item => item.Matches?.Count ?? 0),
+            Source = config.CacheSyncSource,
+            LastImportResult = config.LastImportResult,
+            LastSyncResult = config.LastCacheSyncResult,
+            LastSyncUtc = config.LastCacheSyncUtc
+        };
     }
 
     /// <inheritdoc />
@@ -341,15 +409,46 @@ public class ImportedMatchCacheService : IImportedMatchCacheService
         };
     }
 
+    private static CachedWrestlingEvent ToCached(ExternalCacheEvent item, string source)
+    {
+        var eventDate = item.EventDate?.Date;
+        var year = eventDate?.Year ?? item.Year;
+        return new CachedWrestlingEvent
+        {
+            CagematchEventId = item.CagematchEventId,
+            LookupKey = LookupKey.Build(item.Name, year, eventDate),
+            Name = item.Name,
+            EventDate = eventDate,
+            SourceUrl = item.SourceUrl,
+            CachedAtUtc = DateTime.UtcNow,
+            CacheSource = source,
+            Matches = item.Matches.Select((match, index) => new CachedWrestlingMatch
+            {
+                Order = match.Order > 0 ? match.Order : index + 1,
+                Participants = match.Participants,
+                Stipulation = match.Stipulation,
+                Rating = match.Rating,
+                Result = match.Result
+            }).ToList()
+        };
+    }
+
     private static PluginConfiguration GetConfiguration()
     {
         return Plugin.Instance?.Configuration ?? new PluginConfiguration();
     }
 
-    private static void SaveResult(ImportedCacheImportResult result)
+    private static void SaveResult(ImportedCacheImportResult result, string? syncSource = null)
     {
         var config = GetConfiguration();
         config.LastImportResult = result.Message;
+        if (!string.IsNullOrWhiteSpace(syncSource))
+        {
+            config.CacheSyncSource = syncSource;
+            config.LastCacheSyncResult = result.Message;
+            config.LastCacheSyncUtc = DateTime.UtcNow;
+        }
+
         Plugin.Instance?.SaveConfiguration();
     }
 }
@@ -384,6 +483,125 @@ public class ImportedCacheImportRequest
     /// Gets or sets CSV text.
     /// </summary>
     public string Csv { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// External normalized cache sync request.
+/// </summary>
+public class ExternalCacheSyncRequest
+{
+    /// <summary>
+    /// Gets or sets the cache source name.
+    /// </summary>
+    public string Source { get; set; } = "Browser worker";
+
+    /// <summary>
+    /// Gets or sets normalized events.
+    /// </summary>
+    public List<ExternalCacheEvent> Events { get; set; } = [];
+}
+
+/// <summary>
+/// External normalized event payload.
+/// </summary>
+public class ExternalCacheEvent
+{
+    /// <summary>
+    /// Gets or sets the CageMatch event id.
+    /// </summary>
+    public string CagematchEventId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the event name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the event year.
+    /// </summary>
+    public int? Year { get; set; }
+
+    /// <summary>
+    /// Gets or sets the event date.
+    /// </summary>
+    public DateTime? EventDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the source URL.
+    /// </summary>
+    public string SourceUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets normalized matches.
+    /// </summary>
+    public List<ExternalCacheMatch> Matches { get; set; } = [];
+}
+
+/// <summary>
+/// External normalized match payload.
+/// </summary>
+public class ExternalCacheMatch
+{
+    /// <summary>
+    /// Gets or sets match order.
+    /// </summary>
+    public int Order { get; set; }
+
+    /// <summary>
+    /// Gets or sets participants.
+    /// </summary>
+    public string Participants { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets stipulation/title info.
+    /// </summary>
+    public string Stipulation { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets rating text.
+    /// </summary>
+    public string Rating { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets result/winner text.
+    /// </summary>
+    public string Result { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Imported cache status.
+/// </summary>
+public class ImportedCacheStatus
+{
+    /// <summary>
+    /// Gets or sets imported event count.
+    /// </summary>
+    public int ImportedEvents { get; set; }
+
+    /// <summary>
+    /// Gets or sets imported match count.
+    /// </summary>
+    public int ImportedMatches { get; set; }
+
+    /// <summary>
+    /// Gets or sets latest cache source.
+    /// </summary>
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets latest import result.
+    /// </summary>
+    public string LastImportResult { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets latest sync result.
+    /// </summary>
+    public string LastSyncResult { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets latest sync timestamp.
+    /// </summary>
+    public DateTime? LastSyncUtc { get; set; }
 }
 
 internal sealed class ImportedCacheRow

@@ -114,6 +114,33 @@ public class WrestlingController : ControllerBase
     }
 
     /// <summary>
+    /// Gets queue items for the external cache worker.
+    /// </summary>
+    [HttpGet("Cache/Queue")]
+    public ActionResult<IReadOnlyList<WrestlingScanQueueItem>> GetCacheQueue()
+    {
+        return Ok(_scanService.GetQueueItems());
+    }
+
+    /// <summary>
+    /// Syncs normalized match-card cache from the external cache worker.
+    /// </summary>
+    [HttpPost("Cache/Sync")]
+    public ActionResult<ImportedCacheImportResult> SyncCache([FromBody] ExternalCacheSyncRequest? request)
+    {
+        return Ok(_importedCacheService.SyncEvents(request ?? new ExternalCacheSyncRequest()));
+    }
+
+    /// <summary>
+    /// Gets imported cache status.
+    /// </summary>
+    [HttpGet("Cache/Status")]
+    public ActionResult<ImportedCacheStatus> GetCacheStatus()
+    {
+        return Ok(_importedCacheService.GetStatus());
+    }
+
+    /// <summary>
     /// Serves the optional Jellyfin Web enhancement script.
     /// </summary>
     [HttpGet("Web/wrestling-match-card.js")]
