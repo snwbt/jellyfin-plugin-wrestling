@@ -15,21 +15,31 @@ public class PluginConfiguration : BasePluginConfiguration
     public PluginConfiguration()
     {
         EnableAutomaticLookup = true;
+        EnableScheduledScan = false;
         CrawlDelaySeconds = 527;
         IncludeRatingsInOverview = true;
         LibraryName = "Wrestling PPVs";
+        SelectedLibraryNames = [];
         UserAgent = "Jellyfin.Plugin.Wrestling/1.0";
         CachedEvents = [];
         PendingManualLookups = [];
         ManualMappings = [];
         ManualMappingsText = string.Empty;
         LastApplyResult = string.Empty;
+        LastScanResult = string.Empty;
+        LastCagematchUrl = string.Empty;
+        LastCagematchStatus = string.Empty;
     }
 
     /// <summary>
     /// Gets or sets a value indicating whether title/date searches are enabled when a CageMatch id is missing.
     /// </summary>
     public bool EnableAutomaticLookup { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the scheduled scan task should process selected libraries.
+    /// </summary>
+    public bool EnableScheduledScan { get; set; }
 
     /// <summary>
     /// Gets or sets the minimum delay between CageMatch HTTP requests.
@@ -47,6 +57,11 @@ public class PluginConfiguration : BasePluginConfiguration
     public string LibraryName { get; set; }
 
     /// <summary>
+    /// Gets or sets selected Jellyfin library names to scan.
+    /// </summary>
+    public List<string> SelectedLibraryNames { get; set; }
+
+    /// <summary>
     /// Gets or sets the HTTP user agent.
     /// </summary>
     public string UserAgent { get; set; }
@@ -55,6 +70,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the last CageMatch request time in UTC.
     /// </summary>
     public DateTime LastCagematchRequestUtc { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest CageMatch URL requested by the scanner.
+    /// </summary>
+    public string LastCagematchUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest CageMatch request status.
+    /// </summary>
+    public string LastCagematchStatus { get; set; }
 
     /// <summary>
     /// Gets or sets cached event metadata.
@@ -80,6 +105,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the latest direct apply summary.
     /// </summary>
     public string LastApplyResult { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest automatic scan summary.
+    /// </summary>
+    public string LastScanResult { get; set; }
 }
 
 /// <summary>

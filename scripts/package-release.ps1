@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Repo,
 
-    [string]$Version = "1.0.0.3",
+    [string]$Version = "1.0.0.4",
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
@@ -40,7 +40,12 @@ if ((Test-Path $zipPath) -and -not $ForcePackage) {
 else {
     & $dotnet publish (Join-Path $root "Jellyfin.Plugin.Wrestling\Jellyfin.Plugin.Wrestling.csproj") `
         --configuration $Configuration `
-        --output $publishDir
+        --output $publishDir `
+        --no-restore
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet publish failed with exit code $LASTEXITCODE."
+    }
 
     if (Test-Path $packageStagingDir) {
         Remove-Item -LiteralPath $packageStagingDir -Recurse -Force
@@ -90,7 +95,7 @@ else {
 
 $newVersion = [ordered]@{
     version = $Version
-    changelog = "Add direct Apply Match Cards workflow for configured PPV libraries."
+    changelog = "Add selected-library CageMatch auto-scan with status diagnostics."
     targetAbi = $TargetAbi
     sourceUrl = $sourceUrl
     checksum = $checksum

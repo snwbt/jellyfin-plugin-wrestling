@@ -8,6 +8,14 @@
         "category":  "Metadata",
         "versions":  [
                          {
+                             "version":  "1.0.0.4",
+                             "changelog":  "Add selected-library CageMatch auto-scan with status diagnostics.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/main/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.4.zip",
+                             "checksum":  "739d22f20501a96b2f19f800d8bd675f",
+                             "timestamp":  "2026-05-26T13:33:33Z"
+                         },
+                         {
                              "version":  "1.0.0.3",
                              "changelog":  "Add direct Apply Match Cards workflow for configured PPV libraries.",
                              "targetAbi":  "10.11.0.0",

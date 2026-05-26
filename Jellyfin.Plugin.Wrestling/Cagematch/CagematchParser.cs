@@ -40,11 +40,24 @@ public static partial class CagematchParser
     /// </summary>
     public static IEnumerable<string> ParseSearchEventIds(string html)
     {
+        return ParseSearchEventCandidates(html).Select(candidate => candidate.EventId);
+    }
+
+    /// <summary>
+    /// Parses event candidates from a CageMatch search response.
+    /// </summary>
+    public static IEnumerable<CagematchSearchCandidate> ParseSearchEventCandidates(string html)
+    {
         ArgumentNullException.ThrowIfNull(html);
 
         foreach (Match match in EventLinkRegex().Matches(html))
         {
-            yield return match.Groups["id"].Value;
+            yield return new CagematchSearchCandidate
+            {
+                EventId = match.Groups["id"].Value,
+                Name = CleanCell(match.Groups["text"].Value),
+                RawText = CleanCell(match.Value)
+            };
         }
     }
 
@@ -168,7 +181,7 @@ public static partial class CagematchParser
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();
 
-    [GeneratedRegex(@"[?&]id=1&amp;nr=(?<id>\d+)|[?&]id=1&nr=(?<id>\d+)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<a[^>]+href\s*=\s*[""'][^""']*(?:[?&]|&amp;)id=1(?:&amp;|&)nr=(?<id>\d+)[^""']*[""'][^>]*>(?<text>.*?)</a>|[?&]id=1&amp;nr=(?<id>\d+)|[?&]id=1&nr=(?<id>\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex EventLinkRegex();
 
     [GeneratedRegex(@"(?<date>\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{4})", RegexOptions.IgnoreCase)]

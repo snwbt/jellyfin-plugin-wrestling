@@ -59,6 +59,37 @@ public class CagematchSearchResult
     /// Gets or sets a status message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets candidates considered for the lookup.
+    /// </summary>
+    public List<CagematchSearchCandidate> Candidates { get; set; } = [];
+}
+
+/// <summary>
+/// One CageMatch event candidate from search results.
+/// </summary>
+public class CagematchSearchCandidate
+{
+    /// <summary>
+    /// Gets or sets the CageMatch event id.
+    /// </summary>
+    public string EventId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the candidate display name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets raw searchable text from the result.
+    /// </summary>
+    public string RawText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the score assigned by the matcher.
+    /// </summary>
+    public int Score { get; set; }
 }
 
 /// <summary>
@@ -115,20 +146,38 @@ public class CagematchClient : ICagematchClient
         try
         {
             var html = await GetStringRespectfullyAsync(url, cancellationToken).ConfigureAwait(false);
-            var candidates = CagematchParser.ParseSearchEventIds(html).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var candidates = CagematchParser.ParseSearchEventCandidates(html)
+                .GroupBy(candidate => candidate.EventId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .Select(candidate => CagematchCandidateMatcher.Score(candidate, name, year, premiereDate))
+                .OrderByDescending(candidate => candidate.Score)
+                .ToList();
 
             if (candidates.Count == 1)
             {
                 return new CagematchSearchResult
                 {
-                    EventId = candidates[0],
+                    EventId = candidates[0].EventId,
+                    Candidates = candidates,
                     Message = "Found one CageMatch event candidate."
+                };
+            }
+
+            var best = CagematchCandidateMatcher.ChooseBest(candidates);
+            if (best is not null)
+            {
+                return new CagematchSearchResult
+                {
+                    EventId = best.EventId,
+                    Candidates = candidates,
+                    Message = string.Create(CultureInfo.InvariantCulture, $"Selected best CageMatch candidate {best.EventId} with score {best.Score}.")
                 };
             }
 
             return new CagematchSearchResult
             {
                 IsAmbiguous = candidates.Count > 1,
+                Candidates = candidates,
                 Message = candidates.Count == 0 ? "No CageMatch event candidates found." : "Multiple CageMatch event candidates found."
             };
         }
@@ -152,12 +201,17 @@ public class CagematchClient : ICagematchClient
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.UserAgent.ParseAdd(GetConfiguration().UserAgent);
             using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            GetConfiguration().LastCagematchRequestUtc = DateTime.UtcNow;
+            var config = GetConfiguration();
+            config.LastCagematchRequestUtc = DateTime.UtcNow;
+            config.LastCagematchUrl = url;
+            config.LastCagematchStatus = string.Format(CultureInfo.InvariantCulture, "HTTP {0}", (int)response.StatusCode);
             Plugin.Instance?.SaveConfiguration();
 
             var html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode || IsBlockedGate(html))
             {
+                config.LastCagematchStatus = string.Format(CultureInfo.InvariantCulture, "Blocked or gated: HTTP {0}", (int)response.StatusCode);
+                Plugin.Instance?.SaveConfiguration();
                 throw new CagematchBlockedException(
                     string.Format(CultureInfo.InvariantCulture, "CageMatch lookup was blocked or gated. HTTP status: {0}.", response.StatusCode));
             }

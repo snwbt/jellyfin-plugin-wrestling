@@ -2,6 +2,7 @@ using Jellyfin.Plugin.Wrestling.Cagematch;
 using Jellyfin.Plugin.Wrestling.Services;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Plugin.Wrestling;
@@ -18,5 +19,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IWrestlingMatchCache, WrestlingMatchCache>();
         serviceCollection.AddSingleton<IWrestlingMatchService, WrestlingMatchService>();
         serviceCollection.AddSingleton<IMatchCardApplyService, MatchCardApplyService>();
+        serviceCollection.AddSingleton<IWrestlingAutoScanService, WrestlingAutoScanService>();
+        serviceCollection.AddSingleton<IScheduledTask, WrestlingScanScheduledTask>();
     }
 }

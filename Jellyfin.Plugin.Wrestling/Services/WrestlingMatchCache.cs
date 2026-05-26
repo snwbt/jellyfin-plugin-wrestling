@@ -46,6 +46,7 @@ public class WrestlingMatchCache : IWrestlingMatchCache
         }
 
         var config = GetConfiguration();
+        config.CachedEvents ??= [];
         var cached = config.CachedEvents.FirstOrDefault(item =>
             string.Equals(item.CagematchEventId, cagematchEventId, StringComparison.OrdinalIgnoreCase));
 
@@ -61,6 +62,7 @@ public class WrestlingMatchCache : IWrestlingMatchCache
         }
 
         var config = GetConfiguration();
+        config.CachedEvents ??= [];
         var cached = config.CachedEvents.FirstOrDefault(item =>
             string.Equals(item.LookupKey, lookupKey, StringComparison.OrdinalIgnoreCase));
 
@@ -73,6 +75,7 @@ public class WrestlingMatchCache : IWrestlingMatchCache
         ArgumentNullException.ThrowIfNull(wrestlingEvent);
 
         var config = GetConfiguration();
+        config.CachedEvents ??= [];
         config.CachedEvents.RemoveAll(item =>
             string.Equals(item.CagematchEventId, wrestlingEvent.CagematchEventId, StringComparison.OrdinalIgnoreCase)
             || string.Equals(item.LookupKey, wrestlingEvent.LookupKey, StringComparison.OrdinalIgnoreCase));
@@ -85,6 +88,7 @@ public class WrestlingMatchCache : IWrestlingMatchCache
     public void RecordManualLookup(string name, int? year, DateTime? premiereDate, string reason)
     {
         var config = GetConfiguration();
+        config.PendingManualLookups ??= [];
         var exists = config.PendingManualLookups.Any(item =>
             string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)
             && item.Year == year

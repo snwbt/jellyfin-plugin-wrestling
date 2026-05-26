@@ -19,14 +19,19 @@ public class WrestlingController : ControllerBase
 {
     private readonly IWrestlingMatchService _matchService;
     private readonly IMatchCardApplyService _applyService;
+    private readonly IWrestlingAutoScanService _scanService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WrestlingController"/> class.
     /// </summary>
-    public WrestlingController(IWrestlingMatchService matchService, IMatchCardApplyService applyService)
+    public WrestlingController(
+        IWrestlingMatchService matchService,
+        IMatchCardApplyService applyService,
+        IWrestlingAutoScanService scanService)
     {
         _matchService = matchService;
         _applyService = applyService;
+        _scanService = scanService;
     }
 
     /// <summary>
@@ -49,6 +54,33 @@ public class WrestlingController : ControllerBase
     public async Task<ActionResult<MatchCardApplyResult>> ApplyMatchCards(CancellationToken cancellationToken)
     {
         return Ok(await _applyService.ApplyAsync(cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Gets selectable Jellyfin libraries.
+    /// </summary>
+    [HttpGet("Libraries")]
+    public ActionResult<IReadOnlyList<WrestlingLibraryInfo>> GetLibraries()
+    {
+        return Ok(_scanService.GetLibraries());
+    }
+
+    /// <summary>
+    /// Gets current automatic scan status.
+    /// </summary>
+    [HttpGet("Status")]
+    public ActionResult<WrestlingScanStatus> GetStatus()
+    {
+        return Ok(_scanService.GetStatus());
+    }
+
+    /// <summary>
+    /// Queues an automatic CageMatch scan.
+    /// </summary>
+    [HttpPost("Scan")]
+    public async Task<ActionResult<WrestlingScanStatus>> Scan(CancellationToken cancellationToken)
+    {
+        return Ok(await _scanService.QueueScanAsync(cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
