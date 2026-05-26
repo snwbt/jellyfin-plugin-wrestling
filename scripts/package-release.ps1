@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Repo,
 
-    [string]$Version = "1.0.0.2",
+    [string]$Version = "1.0.0.3",
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
@@ -90,7 +90,7 @@ else {
 
 $newVersion = [ordered]@{
     version = $Version
-    changelog = "Add manual PPV mappings and pasted match-card fallback for visible movie overviews."
+    changelog = "Add direct Apply Match Cards workflow for configured PPV libraries."
     targetAbi = $TargetAbi
     sourceUrl = $sourceUrl
     checksum = $checksum

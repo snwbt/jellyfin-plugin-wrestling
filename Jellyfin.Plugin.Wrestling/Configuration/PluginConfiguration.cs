@@ -17,11 +17,13 @@ public class PluginConfiguration : BasePluginConfiguration
         EnableAutomaticLookup = true;
         CrawlDelaySeconds = 527;
         IncludeRatingsInOverview = true;
+        LibraryName = "Wrestling PPVs";
         UserAgent = "Jellyfin.Plugin.Wrestling/1.0";
         CachedEvents = [];
         PendingManualLookups = [];
         ManualMappings = [];
         ManualMappingsText = string.Empty;
+        LastApplyResult = string.Empty;
     }
 
     /// <summary>
@@ -38,6 +40,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether ratings are shown in the spoiler-safe overview.
     /// </summary>
     public bool IncludeRatingsInOverview { get; set; }
+
+    /// <summary>
+    /// Gets or sets the library name to scan when applying match cards directly.
+    /// </summary>
+    public string LibraryName { get; set; }
 
     /// <summary>
     /// Gets or sets the HTTP user agent.
@@ -68,6 +75,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets manually configured PPV mappings as editable text.
     /// </summary>
     public string ManualMappingsText { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest direct apply summary.
+    /// </summary>
+    public string LastApplyResult { get; set; }
 }
 
 /// <summary>

@@ -47,6 +47,10 @@ Matches:
 After saving, refresh metadata for the movie or library. The plugin writes the
 match card into the movie overview.
 
+You can also click **Apply Match Cards** on the plugin settings page. That scans
+the configured library name, defaults to `Wrestling PPVs`, and writes matching
+manual cards directly into movie overviews.
+
 ## CageMatch IDs
 
 For reliable matching, add a provider id named `CageMatch` to PPV metadata when

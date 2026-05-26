@@ -27,16 +27,25 @@
                         </label>
                     </div>
                     <div class="inputContainer">
+                        <input is="emby-input" type="text" id="LibraryName" label="Library name" />
+                    </div>
+                    <div class="inputContainer">
                         <textarea is="emby-textarea" id="ManualMappingsText" label="Manual PPV mappings"></textarea>
                         <div class="fieldDescription">
                             One block per PPV. Use Title, Year, Date, CageMatch, then Matches. Separate multiple PPVs with a line containing only ---.
                         </div>
                     </div>
                     <div class="inputContainer">
+                        <textarea is="emby-textarea" id="LastApplyResult" label="Last apply result" readonly></textarea>
+                    </div>
+                    <div class="inputContainer">
                         <textarea is="emby-textarea" id="PendingManualLookups" label="Manual lookup queue" readonly></textarea>
                     </div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
+                    </button>
+                    <button is="emby-button" type="button" id="ApplyMatchCards" class="raised block">
+                        <span>Apply Match Cards</span>
                     </button>
                 </form>
             </div>
@@ -53,7 +62,9 @@
                     document.querySelector('#CrawlDelaySeconds').value = config.CrawlDelaySeconds || 527;
                     document.querySelector('#UserAgent').value = config.UserAgent || 'Jellyfin.Plugin.Wrestling/1.0';
                     document.querySelector('#IncludeRatingsInOverview').checked = config.IncludeRatingsInOverview;
+                    document.querySelector('#LibraryName').value = config.LibraryName || 'Wrestling PPVs';
                     document.querySelector('#ManualMappingsText').value = config.ManualMappingsText || exampleMappings(config.ManualMappings || []);
+                    document.querySelector('#LastApplyResult').value = config.LastApplyResult || '';
                     document.querySelector('#PendingManualLookups').value = (config.PendingManualLookups || []).map(function (item) {
                         return [item.Name, item.Year || '', item.PremiereDate || '', item.Reason || ''].join(' | ');
                     }).join('\n');
@@ -64,18 +75,45 @@
             document.querySelector('#WrestlingConfigForm').addEventListener('submit', function (event) {
                 event.preventDefault();
                 Dashboard.showLoadingMsg();
-                ApiClient.getPluginConfiguration(WrestlingConfig.pluginId).then(function (config) {
-                    config.EnableAutomaticLookup = document.querySelector('#EnableAutomaticLookup').checked;
-                    config.CrawlDelaySeconds = parseInt(document.querySelector('#CrawlDelaySeconds').value || '527', 10);
-                    config.UserAgent = document.querySelector('#UserAgent').value || 'Jellyfin.Plugin.Wrestling/1.0';
-                    config.IncludeRatingsInOverview = document.querySelector('#IncludeRatingsInOverview').checked;
-                    config.ManualMappingsText = document.querySelector('#ManualMappingsText').value || '';
-                    return ApiClient.updatePluginConfiguration(WrestlingConfig.pluginId, config);
-                }).then(function () {
+                saveConfig().then(function () {
                     Dashboard.processPluginConfigurationUpdateResult();
                 });
                 return false;
             });
+
+            document.querySelector('#ApplyMatchCards').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                saveConfig().then(function () {
+                    return ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('Wrestling/Apply'),
+                        dataType: 'json'
+                    });
+                }).then(function (result) {
+                    document.querySelector('#LastApplyResult').value = [
+                        'Library: ' + (result.LibraryName || result.libraryName || ''),
+                        'Mappings: ' + (result.MappingCount || result.mappingCount || 0),
+                        result.Message || result.message || '',
+                        'Updated: ' + ((result.UpdatedItems || result.updatedItems || []).join(', ')),
+                        'Failures: ' + ((result.Failures || result.failures || []).join('; '))
+                    ].join('\n');
+                    Dashboard.hideLoadingMsg();
+                }).catch(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            function saveConfig() {
+                return ApiClient.getPluginConfiguration(WrestlingConfig.pluginId).then(function (config) {
+                    config.EnableAutomaticLookup = document.querySelector('#EnableAutomaticLookup').checked;
+                    config.CrawlDelaySeconds = parseInt(document.querySelector('#CrawlDelaySeconds').value || '527', 10);
+                    config.UserAgent = document.querySelector('#UserAgent').value || 'Jellyfin.Plugin.Wrestling/1.0';
+                    config.IncludeRatingsInOverview = document.querySelector('#IncludeRatingsInOverview').checked;
+                    config.LibraryName = document.querySelector('#LibraryName').value || 'Wrestling PPVs';
+                    config.ManualMappingsText = document.querySelector('#ManualMappingsText').value || '';
+                    return ApiClient.updatePluginConfiguration(WrestlingConfig.pluginId, config);
+                });
+            }
 
             function exampleMappings(existingMappings) {
                 if (existingMappings.length) {

@@ -1,5 +1,6 @@
 using Jellyfin.Plugin.Wrestling.Configuration;
 using Jellyfin.Plugin.Wrestling.Services;
+using MediaBrowser.Controller.Entities.Movies;
 using Xunit;
 
 namespace Jellyfin.Plugin.Wrestling.Tests;
@@ -67,5 +68,44 @@ public class ManualMappingTests
         Assert.Equal("Dudleyville Street Fight", wrestlingEvent.Matches[0].Stipulation);
         Assert.Equal("8.1", wrestlingEvent.Matches[0].Rating);
         Assert.Equal("Taz", wrestlingEvent.Matches[1].Result);
+    }
+
+    [Fact]
+    public void TryApplyManualMappingPreservesOverviewAndAvoidsDuplicateBlocks()
+    {
+        var movie = new Movie
+        {
+            Name = "CZW: Cage Of Death 4",
+            ProductionYear = 2019,
+            Overview = "Original overview."
+        };
+        var mapping = new ManualPpvMapping
+        {
+            Title = "CZW: Cage Of Death 4",
+            Year = 2019,
+            MatchCardText = "1. Wrestler A vs. Wrestler B | Cage Of Death Match | 8.0 | Wrestler A"
+        };
+
+        var first = MatchCardApplyService.TryApplyManualMapping(movie, mapping, true, out _);
+        var second = MatchCardApplyService.TryApplyManualMapping(movie, mapping, true, out _);
+
+        Assert.True(first);
+        Assert.True(second);
+        Assert.StartsWith("Original overview.", movie.Overview, StringComparison.Ordinal);
+        Assert.Contains("Match Card", movie.Overview, StringComparison.Ordinal);
+        Assert.Equal(1, Count(movie.Overview, MatchCardFormatter.StartMarker));
+    }
+
+    private static int Count(string value, string token)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += token.Length;
+        }
+
+        return count;
     }
 }

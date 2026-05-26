@@ -17,5 +17,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddHttpClient<ICagematchClient, CagematchClient>();
         serviceCollection.AddSingleton<IWrestlingMatchCache, WrestlingMatchCache>();
         serviceCollection.AddSingleton<IWrestlingMatchService, WrestlingMatchService>();
+        serviceCollection.AddSingleton<IMatchCardApplyService, MatchCardApplyService>();
     }
 }

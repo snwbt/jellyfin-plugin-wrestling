@@ -18,13 +18,15 @@ namespace Jellyfin.Plugin.Wrestling.Api;
 public class WrestlingController : ControllerBase
 {
     private readonly IWrestlingMatchService _matchService;
+    private readonly IMatchCardApplyService _applyService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WrestlingController"/> class.
     /// </summary>
-    public WrestlingController(IWrestlingMatchService matchService)
+    public WrestlingController(IWrestlingMatchService matchService, IMatchCardApplyService applyService)
     {
         _matchService = matchService;
+        _applyService = applyService;
     }
 
     /// <summary>
@@ -38,6 +40,15 @@ public class WrestlingController : ControllerBase
     {
         var response = await _matchService.GetMatchesAsync(itemId, includeResults, cancellationToken).ConfigureAwait(false);
         return response is null ? NotFound() : Ok(response);
+    }
+
+    /// <summary>
+    /// Applies manually configured match cards to the configured PPV library.
+    /// </summary>
+    [HttpPost("Apply")]
+    public async Task<ActionResult<MatchCardApplyResult>> ApplyMatchCards(CancellationToken cancellationToken)
+    {
+        return Ok(await _applyService.ApplyAsync(cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>

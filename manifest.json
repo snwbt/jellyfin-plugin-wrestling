@@ -8,6 +8,14 @@
         "category":  "Metadata",
         "versions":  [
                          {
+                             "version":  "1.0.0.3",
+                             "changelog":  "Add direct Apply Match Cards workflow for configured PPV libraries.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/catalog-fix-1.0.0.3/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.3.zip",
+                             "checksum":  "0f46ac9637f601e82132db1d42b16f3b",
+                             "timestamp":  "2026-05-26T12:59:18Z"
+                         },
+                         {
                              "version":  "1.0.0.2",
                              "changelog":  "Add manual PPV mappings and pasted match-card fallback for visible movie overviews.",
                              "targetAbi":  "10.11.0.0",
