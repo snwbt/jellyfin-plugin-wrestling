@@ -2,11 +2,86 @@
 <html>
 <head>
     <title>Wrestling</title>
+    <style>
+        .wrestlingPage {
+            max-width: 1100px;
+        }
+
+        .wrestlingGrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 1.25em 0;
+        }
+
+        .wrestlingMetric {
+            background: rgba(255, 255, 255, .07);
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 6px;
+            padding: 12px;
+            min-height: 70px;
+        }
+
+        .wrestlingMetricLabel {
+            display: block;
+            opacity: .75;
+            font-size: .86em;
+            margin-bottom: 8px;
+        }
+
+        .wrestlingMetricValue {
+            display: block;
+            font-size: 1.35em;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .wrestlingBanner {
+            display: none;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 1em 0;
+            background: rgba(183, 28, 28, .28);
+            border: 1px solid rgba(255, 120, 120, .55);
+        }
+
+        .wrestlingLog {
+            min-height: 260px;
+            max-height: 420px;
+            overflow: auto;
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, .18);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+        }
+
+        .wrestlingActions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 8px;
+            margin-top: 1em;
+        }
+
+        #SelectedLibraryNames {
+            min-height: 180px;
+        }
+
+        .wrestlingImportRow {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+    </style>
 </head>
 <body>
     <div id="WrestlingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
         <div data-role="content">
-            <div class="content-primary">
+            <div class="content-primary wrestlingPage">
                 <form id="WrestlingConfigForm">
                     <div class="inputContainer">
                         <label class="checkboxContainer">
@@ -37,21 +112,62 @@
                         <select is="emby-select" id="SelectedLibraryNames" multiple="multiple"></select>
                         <div class="fieldDescription">Select one or more libraries that contain wrestling PPV movies.</div>
                     </div>
-                    <div class="inputContainer">
-                        <textarea is="emby-textarea" id="ScanStatus" label="Scan status" readonly></textarea>
+
+                    <div id="BlockedBanner" class="wrestlingBanner"></div>
+
+                    <div class="wrestlingGrid">
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">State</span><span id="MetricState" class="wrestlingMetricValue">Idle</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Total</span><span id="MetricTotal" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Queued</span><span id="MetricQueued" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Updated</span><span id="MetricUpdated" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Skipped</span><span id="MetricSkipped" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Failed</span><span id="MetricFailed" class="wrestlingMetricValue">0</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Blocked</span><span id="MetricBlocked" class="wrestlingMetricValue">0</span></div>
                     </div>
-                    <div class="inputContainer">
-                        <textarea is="emby-textarea" id="PendingManualLookups" label="Unresolved lookups" readonly></textarea>
+
+                    <div class="wrestlingGrid">
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Current item</span><span id="MetricCurrentItem" class="wrestlingMetricValue">-</span></div>
+                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Last CageMatch status</span><span id="MetricCagematchStatus" class="wrestlingMetricValue">-</span></div>
                     </div>
-                    <button is="emby-button" type="submit" class="raised button-submit block">
-                        <span>Save</span>
-                    </button>
-                    <button is="emby-button" type="button" id="ScanNow" class="raised block">
-                        <span>Scan now</span>
-                    </button>
-                    <button is="emby-button" type="button" id="RefreshStatus" class="raised block">
-                        <span>Refresh status</span>
-                    </button>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel">Queue log</label>
+                        <div id="ScanLog" class="wrestlingLog"></div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel">Unresolved lookups</label>
+                        <div id="PendingManualLookups" class="wrestlingLog"></div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel">Import CSV cache</label>
+                        <div class="wrestlingImportRow">
+                            <input type="file" id="CacheCsvFile" accept=".csv,text/csv" />
+                            <button is="emby-button" type="button" id="ImportCache" class="raised">
+                                <span>Import cache</span>
+                            </button>
+                        </div>
+                        <div id="ImportStatus" class="fieldDescription"></div>
+                    </div>
+
+                    <div class="wrestlingActions">
+                        <button is="emby-button" type="submit" class="raised button-submit">
+                            <span>Save</span>
+                        </button>
+                        <button is="emby-button" type="button" id="ScanNow" class="raised">
+                            <span>Scan now</span>
+                        </button>
+                        <button is="emby-button" type="button" id="CancelScan" class="raised">
+                            <span>Cancel scan</span>
+                        </button>
+                        <button is="emby-button" type="button" id="RefreshStatus" class="raised">
+                            <span>Refresh status</span>
+                        </button>
+                        <button is="emby-button" type="button" id="ClearStatus" class="raised">
+                            <span>Clear status</span>
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -71,6 +187,7 @@
                     loadConfig(responses[0]);
                     loadLibraries(responses[1] || [], responses[0]);
                     renderStatus(responses[2] || {});
+                    document.querySelector('#ImportStatus').textContent = responses[0].LastImportResult || responses[0].lastImportResult || '';
                     Dashboard.hideLoadingMsg();
                     startPolling();
                 }).catch(function (err) {
@@ -80,10 +197,7 @@
             });
 
             document.querySelector('#WrestlingConfigPage').addEventListener('pagehide', function () {
-                if (WrestlingConfig.pollHandle) {
-                    clearInterval(WrestlingConfig.pollHandle);
-                    WrestlingConfig.pollHandle = null;
-                }
+                stopPolling();
             });
 
             document.querySelector('#WrestlingConfigForm').addEventListener('submit', function (event) {
@@ -101,11 +215,7 @@
             document.querySelector('#ScanNow').addEventListener('click', function () {
                 Dashboard.showLoadingMsg();
                 saveConfig().then(function () {
-                    return ApiClient.ajax({
-                        type: 'POST',
-                        url: ApiClient.getUrl('Wrestling/Scan'),
-                        dataType: 'json'
-                    });
+                    return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('Wrestling/Scan'), dataType: 'json' });
                 }).then(function (result) {
                     renderStatus(result || {});
                     Dashboard.hideLoadingMsg();
@@ -116,8 +226,41 @@
                 });
             });
 
+            document.querySelector('#CancelScan').addEventListener('click', function () {
+                postStatusAction('Wrestling/CancelScan');
+            });
+
+            document.querySelector('#ClearStatus').addEventListener('click', function () {
+                postStatusAction('Wrestling/ClearStatus');
+            });
+
             document.querySelector('#RefreshStatus').addEventListener('click', function () {
                 refreshStatus();
+            });
+
+            document.querySelector('#ImportCache').addEventListener('click', function () {
+                var file = document.querySelector('#CacheCsvFile').files[0];
+                if (!file) {
+                    document.querySelector('#ImportStatus').textContent = 'Choose a CSV file first.';
+                    return;
+                }
+
+                Dashboard.showLoadingMsg();
+                file.text().then(function (text) {
+                    return ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('Wrestling/Cache/Import'),
+                        dataType: 'json',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ Csv: text })
+                    });
+                }).then(function (result) {
+                    document.querySelector('#ImportStatus').textContent = result.Message || result.message || 'Import complete.';
+                    Dashboard.hideLoadingMsg();
+                }).catch(function (err) {
+                    document.querySelector('#ImportStatus').textContent = formatError('Import failed', err);
+                    Dashboard.hideLoadingMsg();
+                });
             });
 
             function loadConfig(config) {
@@ -126,9 +269,9 @@
                 document.querySelector('#CrawlDelaySeconds').value = config.CrawlDelaySeconds || 527;
                 document.querySelector('#UserAgent').value = config.UserAgent || 'Jellyfin.Plugin.Wrestling/1.0';
                 document.querySelector('#IncludeRatingsInOverview').checked = config.IncludeRatingsInOverview !== false;
-                document.querySelector('#PendingManualLookups').value = (config.PendingManualLookups || []).map(function (item) {
+                document.querySelector('#PendingManualLookups').textContent = (config.PendingManualLookups || []).map(function (item) {
                     return [item.Name || item.name || '', item.Year || item.year || '', item.PremiereDate || item.premiereDate || '', item.Reason || item.reason || ''].join(' | ');
-                }).join('\n');
+                }).join('\n') || 'No unresolved lookups.';
             }
 
             function loadLibraries(libraries, config) {
@@ -163,12 +306,19 @@
                 });
             }
 
+            function postStatusAction(path) {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl(path), dataType: 'json' }).then(function (result) {
+                    renderStatus(result || {});
+                    Dashboard.hideLoadingMsg();
+                }).catch(function (err) {
+                    renderError('Request failed', err);
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
             function refreshStatus() {
-                return ApiClient.ajax({
-                    type: 'GET',
-                    url: ApiClient.getUrl('Wrestling/Status'),
-                    dataType: 'json'
-                }).then(function (result) {
+                return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Status'), dataType: 'json' }).then(function (result) {
                     renderStatus(result || {});
                     return result;
                 }).catch(function (err) {
@@ -183,50 +333,92 @@
 
                 WrestlingConfig.pollHandle = setInterval(function () {
                     refreshStatus().then(function (status) {
-                        if (!status || !(status.IsRunning || status.isRunning || status.IsQueued || status.isQueued)) {
-                            clearInterval(WrestlingConfig.pollHandle);
-                            WrestlingConfig.pollHandle = null;
+                        var state = get(status, 'ScanState') || get(status, 'scanState');
+                        if (!status || ['Running', 'Queued'].indexOf(state) === -1) {
+                            stopPolling();
                         }
                     });
                 }, 5000);
             }
 
+            function stopPolling() {
+                if (WrestlingConfig.pollHandle) {
+                    clearInterval(WrestlingConfig.pollHandle);
+                    WrestlingConfig.pollHandle = null;
+                }
+            }
+
             function renderStatus(status) {
-                var items = status.Items || status.items || [];
-                var selected = status.SelectedLibraries || status.selectedLibraries || [];
+                var items = get(status, 'Items') || [];
+                var state = get(status, 'ScanState') || ((get(status, 'IsRunning')) ? 'Running' : ((get(status, 'IsQueued')) ? 'Queued' : 'Idle'));
+                var blockedReason = get(status, 'BlockedReason') || '';
+
+                setText('#MetricState', state);
+                setText('#MetricTotal', get(status, 'Total') || 0);
+                setText('#MetricQueued', get(status, 'Queued') || 0);
+                setText('#MetricUpdated', get(status, 'Updated') || 0);
+                setText('#MetricSkipped', get(status, 'Skipped') || 0);
+                setText('#MetricFailed', get(status, 'Failed') || 0);
+                setText('#MetricBlocked', get(status, 'Blocked') || 0);
+                setText('#MetricCurrentItem', get(status, 'CurrentItem') || get(status, 'LastAttemptedItem') || '-');
+                setText('#MetricCagematchStatus', get(status, 'LastCagematchStatus') || '-');
+
+                var banner = document.querySelector('#BlockedBanner');
+                if (state === 'Blocked' || blockedReason) {
+                    banner.style.display = 'block';
+                    banner.textContent = blockedReason || get(status, 'Message') || 'CageMatch blocked this scan.';
+                } else {
+                    banner.style.display = 'none';
+                    banner.textContent = '';
+                }
+
+                var selected = get(status, 'SelectedLibraries') || [];
                 var lines = [
-                    'State: ' + ((status.IsRunning || status.isRunning) ? 'Running' : ((status.IsQueued || status.isQueued) ? 'Queued' : 'Idle')),
-                    'Message: ' + (status.Message || status.message || ''),
+                    'State: ' + state,
+                    'Message: ' + (get(status, 'Message') || ''),
                     'Libraries: ' + selected.join(', '),
-                    'Current item: ' + (status.CurrentItem || status.currentItem || ''),
-                    'Total: ' + (status.Total || status.total || 0),
-                    'Queued: ' + (status.Queued || status.queued || 0),
-                    'Updated: ' + (status.Updated || status.updated || 0),
-                    'Skipped: ' + (status.Skipped || status.skipped || 0),
-                    'Failed: ' + (status.Failed || status.failed || 0),
-                    'Last CageMatch URL: ' + (status.LastCagematchUrl || status.lastCagematchUrl || ''),
-                    'Last CageMatch status: ' + (status.LastCagematchStatus || status.lastCagematchStatus || '')
+                    'Current item: ' + (get(status, 'CurrentItem') || ''),
+                    'Last attempted item: ' + (get(status, 'LastAttemptedItem') || ''),
+                    'Last CageMatch URL: ' + (get(status, 'LastCagematchUrl') || ''),
+                    'Last CageMatch status: ' + (get(status, 'LastCagematchStatus') || '')
                 ];
 
                 if (items.length) {
                     lines.push('');
-                    lines.push('Recent items:');
-                    items.slice(-20).forEach(function (item) {
+                    lines.push('Recent queue entries:');
+                    items.slice(-100).forEach(function (item) {
                         lines.push([
-                            item.Status || item.status || '',
-                            item.Name || item.name || '',
-                            item.CagematchEventId || item.cagematchEventId || '',
-                            item.Reason || item.reason || ''
+                            get(item, 'Status') || '',
+                            get(item, 'Name') || '',
+                            get(item, 'CagematchEventId') || '',
+                            get(item, 'SearchMessage') || '',
+                            get(item, 'Reason') || ''
                         ].join(' | '));
                     });
                 }
 
-                document.querySelector('#ScanStatus').value = lines.join('\n');
+                document.querySelector('#ScanLog').textContent = lines.join('\n');
             }
 
             function renderError(message, err) {
+                document.querySelector('#ScanLog').textContent = formatError(message, err);
+            }
+
+            function formatError(message, err) {
                 var detail = err && (err.statusText || err.message || err.responseText) ? (err.statusText || err.message || err.responseText) : '';
-                document.querySelector('#ScanStatus').value = message + (detail ? '\n' + detail : '');
+                return message + (detail ? '\n' + detail : '');
+            }
+
+            function setText(selector, value) {
+                document.querySelector(selector).textContent = value;
+            }
+
+            function get(obj, name) {
+                if (!obj) {
+                    return null;
+                }
+
+                return obj[name] !== undefined ? obj[name] : obj[name.charAt(0).toLowerCase() + name.slice(1)];
             }
         </script>
     </div>

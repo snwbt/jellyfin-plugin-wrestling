@@ -37,6 +37,18 @@ CageMatch currently publishes a `527` second crawl delay, so large libraries pro
 slowly by design. The settings page shows queue progress, recent item outcomes, and
 the latest CageMatch request status.
 
+If CageMatch returns `403` or a gate page, the scan stops immediately in a visible
+`Blocked` state instead of quietly skipping the item. Use **Cancel scan** to stop a
+running or throttled scan, and **Clear status** before starting a fresh blocked run.
+
+## Imported Cache
+
+When live CageMatch lookups are blocked, you can export workbook data to CSV and
+import it from the plugin settings. The importer expects workbook-style columns such
+as `Date`, `Match Fixture`, `Match Type`, `Event`, `Rating on CageMatch`, `Votes`,
+and an optional CageMatch URL. Imported rows are grouped by event and date, then used
+before live CageMatch requests during scans.
+
 ## Scheduled Scan
 
 Enable **scheduled background scan** in plugin settings to let Jellyfin's scheduled

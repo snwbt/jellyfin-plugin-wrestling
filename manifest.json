@@ -8,6 +8,14 @@
         "category":  "Metadata",
         "versions":  [
                          {
+                             "version":  "1.0.0.5",
+                             "changelog":  "Add blocked scan handling, readable diagnostics, cancel/clear controls, and CSV cache import.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/main/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.5.zip",
+                             "checksum":  "b0196af68d2c32e9e6d232fec4806a04",
+                             "timestamp":  "2026-05-26T14:02:08Z"
+                         },
+                         {
                              "version":  "1.0.0.4",
                              "changelog":  "Add selected-library CageMatch auto-scan with status diagnostics.",
                              "targetAbi":  "10.11.0.0",

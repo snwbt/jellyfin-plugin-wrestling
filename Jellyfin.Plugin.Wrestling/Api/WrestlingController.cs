@@ -20,6 +20,7 @@ public class WrestlingController : ControllerBase
     private readonly IWrestlingMatchService _matchService;
     private readonly IMatchCardApplyService _applyService;
     private readonly IWrestlingAutoScanService _scanService;
+    private readonly IImportedMatchCacheService _importedCacheService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WrestlingController"/> class.
@@ -27,11 +28,13 @@ public class WrestlingController : ControllerBase
     public WrestlingController(
         IWrestlingMatchService matchService,
         IMatchCardApplyService applyService,
-        IWrestlingAutoScanService scanService)
+        IWrestlingAutoScanService scanService,
+        IImportedMatchCacheService importedCacheService)
     {
         _matchService = matchService;
         _applyService = applyService;
         _scanService = scanService;
+        _importedCacheService = importedCacheService;
     }
 
     /// <summary>
@@ -81,6 +84,33 @@ public class WrestlingController : ControllerBase
     public async Task<ActionResult<WrestlingScanStatus>> Scan(CancellationToken cancellationToken)
     {
         return Ok(await _scanService.QueueScanAsync(cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Cancels the current automatic scan.
+    /// </summary>
+    [HttpPost("CancelScan")]
+    public ActionResult<WrestlingScanStatus> CancelScan()
+    {
+        return Ok(_scanService.CancelScan());
+    }
+
+    /// <summary>
+    /// Clears automatic scan status.
+    /// </summary>
+    [HttpPost("ClearStatus")]
+    public ActionResult<WrestlingScanStatus> ClearStatus()
+    {
+        return Ok(_scanService.ClearStatus());
+    }
+
+    /// <summary>
+    /// Imports workbook-exported CSV cache rows.
+    /// </summary>
+    [HttpPost("Cache/Import")]
+    public ActionResult<ImportedCacheImportResult> ImportCache([FromBody] ImportedCacheImportRequest? request)
+    {
+        return Ok(_importedCacheService.ImportCsv(request?.Csv ?? string.Empty));
     }
 
     /// <summary>

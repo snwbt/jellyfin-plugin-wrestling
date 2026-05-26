@@ -34,6 +34,16 @@ public interface IWrestlingAutoScanService
     Task<WrestlingScanStatus> QueueScanAsync(CancellationToken cancellationToken);
 
     /// <summary>
+    /// Cancels the current scan.
+    /// </summary>
+    WrestlingScanStatus CancelScan();
+
+    /// <summary>
+    /// Clears scan status.
+    /// </summary>
+    WrestlingScanStatus ClearStatus();
+
+    /// <summary>
     /// Runs a scan and waits for completion.
     /// </summary>
     Task<WrestlingScanStatus> RunScanAsync(IProgress<double>? progress, CancellationToken cancellationToken);
@@ -53,8 +63,10 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
     private readonly ILibraryManager _libraryManager;
     private readonly ICagematchClient _cagematchClient;
     private readonly IWrestlingMatchCache _cache;
+    private readonly IImportedMatchCacheService _importedCache;
     private readonly ILogger<WrestlingAutoScanService> _logger;
     private WrestlingScanStatus _status = WrestlingScanStatus.Idle();
+    private CancellationTokenSource? _scanCancellation;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WrestlingAutoScanService"/> class.
@@ -63,11 +75,13 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
         ILibraryManager libraryManager,
         ICagematchClient cagematchClient,
         IWrestlingMatchCache cache,
+        IImportedMatchCacheService importedCache,
         ILogger<WrestlingAutoScanService> logger)
     {
         _libraryManager = libraryManager;
         _cagematchClient = cagematchClient;
         _cache = cache;
+        _importedCache = importedCache;
         _logger = logger;
     }
 
@@ -80,7 +94,7 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
             {
                 Id = folder.Name ?? string.Empty,
                 Name = folder.Name ?? string.Empty,
-                CollectionType = folder.CollectionType.ToString() ?? string.Empty,
+                CollectionType = folder.CollectionType?.ToString() ?? string.Empty,
                 IsSelected = selected.Contains(folder.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             })
             .Where(folder => !string.IsNullOrWhiteSpace(folder.Name))
@@ -95,6 +109,12 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
 
         if (_scanLock.CurrentCount == 0)
         {
+            return Task.FromResult(GetStatus());
+        }
+
+        if (string.Equals(_status.ScanState, WrestlingScanState.Blocked, StringComparison.OrdinalIgnoreCase))
+        {
+            _status.Message = "Scan is blocked by CageMatch. Clear status before starting a new live scan.";
             return Task.FromResult(GetStatus());
         }
 
@@ -118,6 +138,31 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
     }
 
     /// <inheritdoc />
+    public WrestlingScanStatus CancelScan()
+    {
+        _scanCancellation?.Cancel();
+        if (_status.IsRunning || _status.IsQueued)
+        {
+            _status.ScanState = WrestlingScanState.Cancelled;
+            _status.IsRunning = false;
+            _status.IsQueued = false;
+            _status.Message = "Scan cancelled.";
+            SaveSummary(_status);
+        }
+
+        return GetStatus();
+    }
+
+    /// <inheritdoc />
+    public WrestlingScanStatus ClearStatus()
+    {
+        _scanCancellation?.Cancel();
+        _status = WrestlingScanStatus.Idle();
+        SaveSummary(_status);
+        return GetStatus();
+    }
+
+    /// <inheritdoc />
     public async Task<WrestlingScanStatus> RunScanAsync(IProgress<double>? progress, CancellationToken cancellationToken)
     {
         if (!await _scanLock.WaitAsync(0, cancellationToken).ConfigureAwait(false))
@@ -127,6 +172,9 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
 
         try
         {
+            _scanCancellation?.Dispose();
+            _scanCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var scanToken = _scanCancellation.Token;
             var selectedLibraries = GetSelectedLibraryNames();
             var movies = GetEligibleMovies(selectedLibraries).ToList();
             _status = WrestlingScanStatus.Running(selectedLibraries, movies.Count);
@@ -141,27 +189,51 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
 
             for (var index = 0; index < movies.Count; index++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                scanToken.ThrowIfCancellationRequested();
 
                 var movie = movies[index];
                 _status.CurrentItem = movie.Name ?? movie.Id.ToString("N");
+                _status.LastAttemptedItem = _status.CurrentItem;
                 _status.Queued = Math.Max(0, movies.Count - index - 1);
 
-                var itemResult = await ProcessMovieAsync(movie, cancellationToken).ConfigureAwait(false);
+                var itemResult = await ProcessMovieAsync(movie, scanToken).ConfigureAwait(false);
                 _status.Items.Add(itemResult);
                 ApplyCounters(itemResult);
                 progress?.Report(movies.Count == 0 ? 100 : 100.0 * (index + 1) / movies.Count);
                 SaveSummary(_status);
+
+                if (itemResult.Status == WrestlingScanItemStatus.Blocked)
+                {
+                    _status.ScanState = WrestlingScanState.Blocked;
+                    _status.IsRunning = false;
+                    _status.IsQueued = false;
+                    _status.BlockedReason = itemResult.Reason;
+                    _status.BlockedAtUtc = DateTime.UtcNow;
+                    _status.Message = string.Concat("Blocked by CageMatch: ", itemResult.Reason);
+                    SaveSummary(_status);
+                    return GetStatus();
+                }
             }
 
             _status.IsRunning = false;
+            _status.ScanState = WrestlingScanState.Completed;
             _status.CurrentItem = string.Empty;
             _status.Message = string.Format(
                 CultureInfo.InvariantCulture,
-                "Completed scan. Updated {0}, skipped {1}, failed {2}.",
+                "Completed scan. Updated {0}, skipped {1}, failed {2}, blocked {3}.",
                 _status.Updated,
                 _status.Skipped,
-                _status.Failed);
+                _status.Failed,
+                _status.Blocked);
+            SaveSummary(_status);
+            return GetStatus();
+        }
+        catch (OperationCanceledException)
+        {
+            _status.ScanState = WrestlingScanState.Cancelled;
+            _status.IsRunning = false;
+            _status.IsQueued = false;
+            _status.Message = "Scan cancelled.";
             SaveSummary(_status);
             return GetStatus();
         }
@@ -199,10 +271,27 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
             var wrestlingEvent = _cache.GetByLookupKey(lookupKey);
             if (wrestlingEvent is null)
             {
+                wrestlingEvent = _importedCache.FindEvent(movie.Name, movie.ProductionYear, movie.PremiereDate);
+                if (wrestlingEvent is not null)
+                {
+                    result.SearchMessage = "Used imported cache.";
+                }
+            }
+
+            if (wrestlingEvent is null)
+            {
                 var search = await _cagematchClient.SearchEventAsync(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, cancellationToken).ConfigureAwait(false);
                 result.SearchMessage = search.Message;
                 result.CandidateCount = search.Candidates.Count;
                 result.CagematchEventId = search.EventId;
+
+                if (search.IsBlocked)
+                {
+                    result.Status = WrestlingScanItemStatus.Blocked;
+                    result.Reason = string.IsNullOrWhiteSpace(search.Message) ? "CageMatch lookup was blocked." : search.Message;
+                    _cache.RecordManualLookup(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, result.Reason);
+                    return result;
+                }
 
                 if (string.IsNullOrWhiteSpace(search.EventId))
                 {
@@ -225,7 +314,10 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
 
             result.CagematchEventId = wrestlingEvent.CagematchEventId;
             var updatedOverview = MatchCardFormatter.AppendOrReplace(movie.Overview, wrestlingEvent, GetConfiguration().IncludeRatingsInOverview);
-            movie.ProviderIds[WrestlingMovieMetadataProvider.ProviderId] = wrestlingEvent.CagematchEventId;
+            if (!string.IsNullOrWhiteSpace(wrestlingEvent.CagematchEventId))
+            {
+                movie.ProviderIds[WrestlingMovieMetadataProvider.ProviderId] = wrestlingEvent.CagematchEventId;
+            }
 
             if (!string.Equals(movie.Overview, updatedOverview, StringComparison.Ordinal))
             {
@@ -243,7 +335,7 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
         }
         catch (CagematchBlockedException ex)
         {
-            result.Status = WrestlingScanItemStatus.Failed;
+            result.Status = WrestlingScanItemStatus.Blocked;
             result.Reason = ex.Message;
             _cache.RecordManualLookup(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, ex.Message);
         }
@@ -291,6 +383,10 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
         {
             _status.Failed++;
         }
+        else if (result.Status == WrestlingScanItemStatus.Blocked)
+        {
+            _status.Blocked++;
+        }
         else
         {
             _status.Skipped++;
@@ -326,6 +422,7 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
     /// <inheritdoc />
     public void Dispose()
     {
+        _scanCancellation?.Dispose();
         _scanLock.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -350,6 +447,8 @@ public class WrestlingLibraryInfo
 /// </summary>
 public class WrestlingScanStatus
 {
+    public string ScanState { get; set; } = WrestlingScanState.Idle;
+
     public bool IsRunning { get; set; }
 
     public bool IsQueued { get; set; }
@@ -364,9 +463,17 @@ public class WrestlingScanStatus
 
     public int Failed { get; set; }
 
+    public int Blocked { get; set; }
+
     public string CurrentItem { get; set; } = string.Empty;
 
+    public string LastAttemptedItem { get; set; } = string.Empty;
+
     public string Message { get; set; } = string.Empty;
+
+    public string BlockedReason { get; set; } = string.Empty;
+
+    public DateTime? BlockedAtUtc { get; set; }
 
     public string LastCagematchUrl { get; set; } = string.Empty;
 
@@ -380,17 +487,17 @@ public class WrestlingScanStatus
 
     public static WrestlingScanStatus Idle()
     {
-        return new WrestlingScanStatus { Message = "Idle." };
+        return new WrestlingScanStatus { ScanState = WrestlingScanState.Idle, Message = "Idle." };
     }
 
     public static WrestlingScanStatus QueuedStatus(IReadOnlyList<string> selectedLibraries)
     {
-        return new WrestlingScanStatus { IsQueued = true, Message = "Scan queued.", SelectedLibraries = selectedLibraries };
+        return new WrestlingScanStatus { ScanState = WrestlingScanState.Queued, IsQueued = true, Message = "Scan queued.", SelectedLibraries = selectedLibraries };
     }
 
     public static WrestlingScanStatus Running(IReadOnlyList<string> selectedLibraries, int total)
     {
-        return new WrestlingScanStatus { IsRunning = true, Total = total, Queued = total, Message = "Scan running.", SelectedLibraries = selectedLibraries };
+        return new WrestlingScanStatus { ScanState = WrestlingScanState.Running, IsRunning = true, Total = total, Queued = total, Message = "Scan running.", SelectedLibraries = selectedLibraries };
     }
 
     public WrestlingScanStatus Clone()
@@ -404,8 +511,13 @@ public class WrestlingScanStatus
             Updated = Updated,
             Skipped = Skipped,
             Failed = Failed,
+            Blocked = Blocked,
             CurrentItem = CurrentItem,
+            LastAttemptedItem = LastAttemptedItem,
             Message = Message,
+            ScanState = ScanState,
+            BlockedReason = BlockedReason,
+            BlockedAtUtc = BlockedAtUtc,
             LastCagematchUrl = LastCagematchUrl,
             LastCagematchStatus = LastCagematchStatus,
             LastResult = LastResult,
@@ -418,13 +530,15 @@ public class WrestlingScanStatus
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "Libraries: {0}{1}Total: {2}{1}Updated: {3}{1}Skipped: {4}{1}Failed: {5}{1}{6}",
-            string.Join(", ", SelectedLibraries),
+            "State: {0}{1}Libraries: {2}{1}Total: {3}{1}Updated: {4}{1}Skipped: {5}{1}Failed: {6}{1}Blocked: {7}{1}{8}",
+            ScanState,
             Environment.NewLine,
+            string.Join(", ", SelectedLibraries),
             Total,
             Updated,
             Skipped,
             Failed,
+            Blocked,
             Message);
     }
 }
@@ -463,6 +577,23 @@ public static class WrestlingScanItemStatus
     public const string Skipped = "skipped";
 
     public const string Failed = "failed";
+
+    public const string Blocked = "blocked";
+}
+
+public static class WrestlingScanState
+{
+    public const string Idle = "Idle";
+
+    public const string Queued = "Queued";
+
+    public const string Running = "Running";
+
+    public const string Blocked = "Blocked";
+
+    public const string Cancelled = "Cancelled";
+
+    public const string Completed = "Completed";
 }
 
 #pragma warning restore CS1591

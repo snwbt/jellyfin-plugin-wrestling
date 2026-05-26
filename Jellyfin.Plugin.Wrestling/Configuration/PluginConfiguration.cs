@@ -22,11 +22,13 @@ public class PluginConfiguration : BasePluginConfiguration
         SelectedLibraryNames = [];
         UserAgent = "Jellyfin.Plugin.Wrestling/1.0";
         CachedEvents = [];
+        ImportedEvents = [];
         PendingManualLookups = [];
         ManualMappings = [];
         ManualMappingsText = string.Empty;
         LastApplyResult = string.Empty;
         LastScanResult = string.Empty;
+        LastImportResult = string.Empty;
         LastCagematchUrl = string.Empty;
         LastCagematchStatus = string.Empty;
     }
@@ -87,6 +89,11 @@ public class PluginConfiguration : BasePluginConfiguration
     public List<CachedWrestlingEvent> CachedEvents { get; set; }
 
     /// <summary>
+    /// Gets or sets imported cache events from workbook/CSV exports.
+    /// </summary>
+    public List<CachedWrestlingEvent> ImportedEvents { get; set; }
+
+    /// <summary>
     /// Gets or sets items that need a manual CageMatch event id.
     /// </summary>
     public List<ManualLookupRequest> PendingManualLookups { get; set; }
@@ -110,6 +117,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the latest automatic scan summary.
     /// </summary>
     public string LastScanResult { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest cache import summary.
+    /// </summary>
+    public string LastImportResult { get; set; }
 }
 
 /// <summary>

@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Repo,
 
-    [string]$Version = "1.0.0.4",
+    [string]$Version = "1.0.0.5",
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
@@ -95,7 +95,7 @@ else {
 
 $newVersion = [ordered]@{
     version = $Version
-    changelog = "Add selected-library CageMatch auto-scan with status diagnostics."
+    changelog = "Add blocked scan handling, readable diagnostics, cancel/clear controls, and CSV cache import."
     targetAbi = $TargetAbi
     sourceUrl = $sourceUrl
     checksum = $checksum

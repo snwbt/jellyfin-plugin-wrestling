@@ -41,6 +41,11 @@ public class WrestlingScanScheduledTask : IScheduledTask
             return;
         }
 
+        if (string.Equals(_scanService.GetStatus().ScanState, WrestlingScanState.Blocked, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         await _scanService.RunScanAsync(progress, cancellationToken).ConfigureAwait(false);
     }
 
