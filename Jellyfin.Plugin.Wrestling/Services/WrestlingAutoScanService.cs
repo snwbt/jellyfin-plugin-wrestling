@@ -117,7 +117,8 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
             return Task.FromResult(GetStatus());
         }
 
-        if (string.Equals(_status.ScanState, WrestlingScanState.Blocked, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(_status.ScanState, WrestlingScanState.Blocked, StringComparison.OrdinalIgnoreCase)
+            && IsLiveCagematchMode())
         {
             _status.Message = "Scan is blocked by CageMatch. Clear status before starting a new live scan.";
             return Task.FromResult(GetStatus());
@@ -290,52 +291,45 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
         try
         {
             var lookupKey = LookupKey.Build(movie.Name, movie.ProductionYear, movie.PremiereDate);
-            var wrestlingEvent = _cache.GetByLookupKey(lookupKey);
+            var config = GetConfiguration();
+            var mode = NormalizeDataSourceMode(config.DataSourceMode);
+            WrestlingEvent? wrestlingEvent = null;
+
+            if (mode == WrestlingDataSourceMode.LiveCagematch)
+            {
+                wrestlingEvent = _cache.GetByLookupKey(lookupKey);
+            }
+
             if (wrestlingEvent is null)
             {
                 wrestlingEvent = _importedCache.FindEvent(movie.Name, movie.ProductionYear, movie.PremiereDate);
                 if (wrestlingEvent is not null)
                 {
-                    result.SearchMessage = "Used imported cache.";
+                    result.SearchMessage = mode == WrestlingDataSourceMode.WorkerCache ? "Used browser worker cache." : "Used imported cache.";
                 }
             }
 
             if (wrestlingEvent is null)
             {
-                var search = await _cagematchClient.SearchEventAsync(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, cancellationToken).ConfigureAwait(false);
-                result.SearchMessage = search.Message;
-                result.CandidateCount = search.Candidates.Count;
-                result.CagematchEventId = search.EventId;
-
-                if (search.IsBlocked)
-                {
-                    result.Status = WrestlingScanItemStatus.Blocked;
-                    result.Reason = string.IsNullOrWhiteSpace(search.Message) ? "CageMatch lookup was blocked." : search.Message;
-                    _cache.RecordManualLookup(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, result.Reason);
-                    return result;
-                }
-
-                if (string.IsNullOrWhiteSpace(search.EventId))
+                if (mode != WrestlingDataSourceMode.LiveCagematch)
                 {
                     result.Status = WrestlingScanItemStatus.Skipped;
-                    result.Reason = string.IsNullOrWhiteSpace(search.Message) ? "No CageMatch candidate found." : search.Message;
-                    _cache.RecordManualLookup(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, result.Reason);
+                    result.SearchMessage = mode == WrestlingDataSourceMode.WorkerCache ? "Worker cache mode." : "CSV import mode.";
+                    result.Reason = mode == WrestlingDataSourceMode.WorkerCache
+                        ? "No worker cache found yet. Run the browser worker first."
+                        : "No imported cache match found. Import CSV cache first.";
                     return result;
                 }
 
-                wrestlingEvent = await _cagematchClient.GetEventByIdAsync(search.EventId, lookupKey, cancellationToken).ConfigureAwait(false);
+                wrestlingEvent = await LookupLiveCagematchAsync(movie, lookupKey, result, cancellationToken).ConfigureAwait(false);
                 if (wrestlingEvent is null)
                 {
-                    result.Status = WrestlingScanItemStatus.Skipped;
-                    result.Reason = "CageMatch event did not yield match rows.";
                     return result;
                 }
-
-                _cache.Save(wrestlingEvent);
             }
 
             result.CagematchEventId = wrestlingEvent.CagematchEventId;
-            var updatedOverview = MatchCardFormatter.AppendOrReplace(movie.Overview, wrestlingEvent, GetConfiguration().IncludeRatingsInOverview);
+            var updatedOverview = MatchCardFormatter.AppendOrReplace(movie.Overview, wrestlingEvent, config.IncludeRatingsInOverview);
             if (!string.IsNullOrWhiteSpace(wrestlingEvent.CagematchEventId))
             {
                 movie.ProviderIds[WrestlingMovieMetadataProvider.ProviderId] = wrestlingEvent.CagematchEventId;
@@ -369,6 +363,61 @@ public sealed class WrestlingAutoScanService : IWrestlingAutoScanService, IDispo
         }
 
         return result;
+    }
+
+    private async Task<WrestlingEvent?> LookupLiveCagematchAsync(Movie movie, string lookupKey, WrestlingScanItemResult result, CancellationToken cancellationToken)
+    {
+        var search = await _cagematchClient.SearchEventAsync(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, cancellationToken).ConfigureAwait(false);
+        result.SearchMessage = search.Message;
+        result.CandidateCount = search.Candidates.Count;
+        result.CagematchEventId = search.EventId;
+
+        if (search.IsBlocked)
+        {
+            result.Status = WrestlingScanItemStatus.Blocked;
+            result.Reason = string.IsNullOrWhiteSpace(search.Message) ? "CageMatch lookup was blocked." : search.Message;
+            _cache.RecordManualLookup(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, result.Reason);
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(search.EventId))
+        {
+            result.Status = WrestlingScanItemStatus.Skipped;
+            result.Reason = string.IsNullOrWhiteSpace(search.Message) ? "No CageMatch candidate found." : search.Message;
+            _cache.RecordManualLookup(movie.Name ?? string.Empty, movie.ProductionYear, movie.PremiereDate, result.Reason);
+            return null;
+        }
+
+        var wrestlingEvent = await _cagematchClient.GetEventByIdAsync(search.EventId, lookupKey, cancellationToken).ConfigureAwait(false);
+        if (wrestlingEvent is null)
+        {
+            result.Status = WrestlingScanItemStatus.Skipped;
+            result.Reason = "CageMatch event did not yield match rows.";
+            return null;
+        }
+
+        _cache.Save(wrestlingEvent);
+        return wrestlingEvent;
+    }
+
+    private static bool IsLiveCagematchMode()
+    {
+        return NormalizeDataSourceMode(GetConfiguration().DataSourceMode) == WrestlingDataSourceMode.LiveCagematch;
+    }
+
+    private static string NormalizeDataSourceMode(string? mode)
+    {
+        if (string.Equals(mode, WrestlingDataSourceMode.LiveCagematch, StringComparison.OrdinalIgnoreCase))
+        {
+            return WrestlingDataSourceMode.LiveCagematch;
+        }
+
+        if (string.Equals(mode, WrestlingDataSourceMode.CsvImport, StringComparison.OrdinalIgnoreCase))
+        {
+            return WrestlingDataSourceMode.CsvImport;
+        }
+
+        return WrestlingDataSourceMode.WorkerCache;
     }
 
     private IEnumerable<Movie> GetEligibleMovies(IReadOnlyCollection<string> selectedLibraries)

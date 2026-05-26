@@ -12,6 +12,8 @@ namespace Wrestling.CacheWorker;
 
 public static partial class Program
 {
+    private const string WorkerVersion = "1.0.0.7";
+
     public static async Task<int> Main(string[] args)
     {
         var options = WorkerOptions.Parse(args);
@@ -30,8 +32,10 @@ public static partial class Program
 
         using var jellyfin = new JellyfinCacheClient(options);
         await using var browser = new VisibleBrowser(options);
+        var state = await WorkerCacheState.LoadAsync(options.CachePath, cancellation.Token).ConfigureAwait(false);
 
         Console.WriteLine("Starting visible browser worker. Press Ctrl+C to stop.");
+        await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, "Starting browser", 0, 0), cancellation.Token).ConfigureAwait(false);
         await browser.StartAsync(cancellation.Token).ConfigureAwait(false);
 
         var queue = await jellyfin.GetQueueAsync(cancellation.Token).ConfigureAwait(false);
@@ -42,47 +46,100 @@ public static partial class Program
 
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Loaded {queue.Count} Jellyfin queue items."));
         var processed = 0;
+        var skipped = 0;
+        var failed = 0;
         foreach (var item in queue)
         {
             cancellation.Token.ThrowIfCancellationRequested();
             processed++;
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"[{processed}/{queue.Count}] {item.Name} {item.Year?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}"));
+            await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count), cancellation.Token).ConfigureAwait(false);
+
+            if (!options.Force && state.ProcessedLookupKeys.Contains(item.LookupKey))
+            {
+                skipped++;
+                Console.WriteLine("Already processed in local worker cache. Use --force to revisit.");
+                await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count) with { Skipped = skipped }, cancellation.Token).ConfigureAwait(false);
+                continue;
+            }
 
             var query = string.Join(' ', new[] { item.Name, item.Year?.ToString(CultureInfo.InvariantCulture) }.Where(value => !string.IsNullOrWhiteSpace(value)));
             var searchUrl = string.Create(CultureInfo.InvariantCulture, $"https://www.cagematch.net/?id=1&view=search&s={Uri.EscapeDataString(query)}");
+            await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count) with { CurrentUrl = searchUrl, Skipped = skipped, Failed = failed }, cancellation.Token).ConfigureAwait(false);
             var searchHtml = await browser.GetCagematchHtmlAsync(searchUrl, cancellation.Token).ConfigureAwait(false);
+            await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count) with { CurrentUrl = searchUrl, Skipped = skipped, Failed = failed, NextAllowedRequestUtc = browser.NextAllowedRequestUtc }, cancellation.Token).ConfigureAwait(false);
             if (CagematchPageParser.IsBlockedGate(searchHtml))
             {
                 Console.WriteLine("Stopped: CageMatch returned a blocked/gated page in the visible browser.");
+                await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Blocked(WorkerVersion, item.Name, searchUrl, "CageMatch returned a blocked/gated search page.", processed, queue.Count), cancellation.Token).ConfigureAwait(false);
                 return 1;
             }
 
             var candidate = CagematchPageParser.ChooseBestCandidate(searchHtml, item.Name, item.Year, item.PremiereDate);
             if (candidate is null)
             {
+                skipped++;
+                if (!options.DryRun)
+                {
+                    state.ProcessedLookupKeys.Add(item.LookupKey);
+                    await state.SaveAsync(options.CachePath, cancellation.Token).ConfigureAwait(false);
+                }
+
                 Console.WriteLine("No unambiguous CageMatch candidate.");
                 continue;
             }
 
+            if (!options.Force && state.SyncedEventIds.Contains(candidate.EventId))
+            {
+                skipped++;
+                state.ProcessedLookupKeys.Add(item.LookupKey);
+                await state.SaveAsync(options.CachePath, cancellation.Token).ConfigureAwait(false);
+                Console.WriteLine("CageMatch event already synced in local worker cache. Use --force to revisit.");
+                continue;
+            }
+
             var eventUrl = string.Create(CultureInfo.InvariantCulture, $"https://www.cagematch.net/?id=1&nr={candidate.EventId}");
+            await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count) with { CurrentUrl = eventUrl, Skipped = skipped, Failed = failed }, cancellation.Token).ConfigureAwait(false);
             var eventHtml = await browser.GetCagematchHtmlAsync(eventUrl, cancellation.Token).ConfigureAwait(false);
+            await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count) with { CurrentUrl = eventUrl, Skipped = skipped, Failed = failed, NextAllowedRequestUtc = browser.NextAllowedRequestUtc }, cancellation.Token).ConfigureAwait(false);
             if (CagematchPageParser.IsBlockedGate(eventHtml))
             {
                 Console.WriteLine("Stopped: CageMatch returned a blocked/gated event page in the visible browser.");
+                await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Blocked(WorkerVersion, item.Name, eventUrl, "CageMatch returned a blocked/gated event page.", processed, queue.Count), cancellation.Token).ConfigureAwait(false);
                 return 1;
             }
 
             var parsedEvent = CagematchPageParser.ParseEventPage(eventHtml, candidate.EventId, eventUrl);
             if (parsedEvent.Matches.Count == 0)
             {
+                failed++;
+                if (!options.DryRun)
+                {
+                    state.ProcessedLookupKeys.Add(item.LookupKey);
+                    await state.SaveAsync(options.CachePath, cancellation.Token).ConfigureAwait(false);
+                }
+
                 Console.WriteLine("Event parsed, but no match rows were found.");
                 continue;
             }
 
-            await jellyfin.SyncAsync(parsedEvent, cancellation.Token).ConfigureAwait(false);
+            if (!options.DryRun)
+            {
+                await jellyfin.SyncAsync(parsedEvent, cancellation.Token).ConfigureAwait(false);
+            }
+
+            if (!options.DryRun)
+            {
+                state.ProcessedLookupKeys.Add(item.LookupKey);
+                state.SyncedEventIds.Add(parsedEvent.CagematchEventId);
+                state.Events[parsedEvent.CagematchEventId] = parsedEvent;
+                await state.SaveAsync(options.CachePath, cancellation.Token).ConfigureAwait(false);
+            }
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Synced {parsedEvent.Matches.Count} matches from {parsedEvent.Name}."));
+            await jellyfin.SendHeartbeatAsync(WorkerHeartbeat.Running(WorkerVersion, item.Name, processed, queue.Count) with { Skipped = skipped, Failed = failed }, cancellation.Token).ConfigureAwait(false);
         }
 
+        await jellyfin.SendHeartbeatAsync(new WorkerHeartbeat { WorkerVersion = WorkerVersion, State = "Completed", Processed = processed, Skipped = skipped, Failed = failed, Total = queue.Count }, cancellation.Token).ConfigureAwait(false);
         Console.WriteLine("Worker completed.");
         return 0;
     }
@@ -101,6 +158,12 @@ public sealed class WorkerOptions
     public int CrawlDelaySeconds { get; init; } = 527;
 
     public int Limit { get; init; }
+
+    public bool Force { get; init; }
+
+    public bool DryRun { get; init; }
+
+    public string CachePath { get; init; } = Path.Combine(AppContext.BaseDirectory, "worker-cache.json");
 
     public static WorkerOptions? Parse(IReadOnlyList<string> args)
     {
@@ -132,7 +195,10 @@ public sealed class WorkerOptions
             BrowserPath = values.GetValueOrDefault("browser-path", string.Empty),
             RemoteDebuggingPort = TryParsePositive(values.GetValueOrDefault("remote-debugging-port"), 9222),
             CrawlDelaySeconds = TryParsePositive(values.GetValueOrDefault("crawl-delay-seconds"), 527),
-            Limit = TryParsePositive(values.GetValueOrDefault("limit"), 0)
+            Limit = TryParsePositive(values.GetValueOrDefault("limit"), 0),
+            Force = values.ContainsKey("force"),
+            DryRun = values.ContainsKey("dry-run"),
+            CachePath = values.GetValueOrDefault("cache-path", Path.Combine(AppContext.BaseDirectory, "worker-cache.json"))
         };
     }
 
@@ -145,6 +211,9 @@ public sealed class WorkerOptions
         Console.WriteLine("  --browser-path PATH              Path to msedge.exe or chrome.exe");
         Console.WriteLine("  --remote-debugging-port 9222     Local browser DevTools port");
         Console.WriteLine("  --crawl-delay-seconds 527        CageMatch crawl delay");
+        Console.WriteLine("  --cache-path worker-cache.json   Local resume/cache file");
+        Console.WriteLine("  --dry-run                        Parse without syncing to Jellyfin");
+        Console.WriteLine("  --force                          Revisit already processed events");
     }
 
     private static int TryParsePositive(string? value, int fallback)
@@ -182,6 +251,12 @@ public sealed class JellyfinCacheClient : IDisposable
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task SendHeartbeatAsync(WorkerHeartbeat heartbeat, CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("Wrestling/Worker/Heartbeat", heartbeat, JsonOptions, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
+
     public void Dispose()
     {
         _httpClient.Dispose();
@@ -196,6 +271,8 @@ public sealed class VisibleBrowser : IAsyncDisposable
     private Process? _process;
     private DateTime _lastCagematchRequestUtc;
     private int _messageId;
+
+    public DateTime? NextAllowedRequestUtc { get; private set; }
 
     public VisibleBrowser(WorkerOptions options)
     {
@@ -228,6 +305,7 @@ public sealed class VisibleBrowser : IAsyncDisposable
     {
         await WaitForCrawlDelayAsync(cancellationToken).ConfigureAwait(false);
         _lastCagematchRequestUtc = DateTime.UtcNow;
+        NextAllowedRequestUtc = _lastCagematchRequestUtc.AddSeconds(_options.CrawlDelaySeconds);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Opening {url}"));
         await SendCommandAsync("Page.navigate", new { url }, cancellationToken).ConfigureAwait(false);
         await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
@@ -398,7 +476,7 @@ public static partial class CagematchPageParser
             .OrderByDescending(candidate => candidate.Score)
             .ToList();
 
-        if (candidates.Count == 1)
+        if (candidates.Count == 1 && candidates[0].Score >= 75)
         {
             return candidates[0];
         }
@@ -596,6 +674,95 @@ public sealed class QueueItem
     public int? Year { get; set; }
 
     public DateTime? PremiereDate { get; set; }
+
+    public string LookupKey { get; set; } = string.Empty;
+}
+
+public sealed record WorkerHeartbeat
+{
+    public string WorkerVersion { get; init; } = string.Empty;
+
+    public string State { get; init; } = string.Empty;
+
+    public string CurrentItem { get; init; } = string.Empty;
+
+    public string CurrentUrl { get; init; } = string.Empty;
+
+    public string LastError { get; init; } = string.Empty;
+
+    public int Processed { get; init; }
+
+    public int Skipped { get; init; }
+
+    public int Failed { get; init; }
+
+    public int Total { get; init; }
+
+    public DateTime? NextAllowedRequestUtc { get; init; }
+
+    public static WorkerHeartbeat Running(string version, string currentItem, int processed, int total)
+    {
+        return new WorkerHeartbeat
+        {
+            WorkerVersion = version,
+            State = "Running",
+            CurrentItem = currentItem,
+            Processed = processed,
+            Total = total
+        };
+    }
+
+    public static WorkerHeartbeat Blocked(string version, string currentItem, string currentUrl, string error, int processed, int total)
+    {
+        return new WorkerHeartbeat
+        {
+            WorkerVersion = version,
+            State = "Blocked",
+            CurrentItem = currentItem,
+            CurrentUrl = currentUrl,
+            LastError = error,
+            Processed = processed,
+            Total = total
+        };
+    }
+}
+
+public sealed class WorkerCacheState
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true
+    };
+
+    public HashSet<string> ProcessedLookupKeys { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public HashSet<string> SyncedEventIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, SyncedEvent> Events { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public static async Task<WorkerCacheState> LoadAsync(string path, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+        {
+            return new WorkerCacheState();
+        }
+
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<WorkerCacheState>(stream, JsonOptions, cancellationToken).ConfigureAwait(false) ?? new WorkerCacheState();
+    }
+
+    public async Task SaveAsync(string path, CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await using var stream = File.Create(path);
+        await JsonSerializer.SerializeAsync(stream, this, JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
 }
 
 public sealed class CacheSyncRequest

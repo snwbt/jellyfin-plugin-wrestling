@@ -38,4 +38,25 @@ public class BrowserWorkerParserTests
     {
         Assert.True(CagematchPageParser.IsBlockedGate("<html><title>Forbidden</title></html>"));
     }
+
+    [Fact]
+    public void ChooseBestCandidate_ReturnsNullForTie()
+    {
+        const string Html = """
+            <a href="?id=1&amp;nr=100">Heat Wave 1998</a>
+            <a href="?id=1&amp;nr=200">Heat Wave 1998</a>
+            """;
+
+        Assert.Null(CagematchPageParser.ChooseBestCandidate(Html, "Heat Wave", 1998, null));
+    }
+
+    [Fact]
+    public void ChooseBestCandidate_ReturnsNullForLowConfidenceSingleCandidate()
+    {
+        const string Html = """
+            <a href="?id=1&amp;nr=100">Completely Different Show 2007</a>
+            """;
+
+        Assert.Null(CagematchPageParser.ChooseBestCandidate(Html, "CZW Cage Of Death 4", 2002, null));
+    }
 }

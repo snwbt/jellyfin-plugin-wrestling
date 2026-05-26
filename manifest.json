@@ -8,6 +8,14 @@
         "category":  "Metadata",
         "versions":  [
                          {
+                             "version":  "1.0.0.7",
+                             "changelog":  "Make browser-worker cache the default workflow with worker heartbeat, resume cache, and clearer settings.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://raw.githubusercontent.com/snwbt/jellyfin-plugin-wrestling/main/release-assets/Jellyfin.Plugin.Wrestling_1.0.0.7.zip",
+                             "checksum":  "f2d91fa840cd1d68aa02cd54c83e626f",
+                             "timestamp":  "2026-05-26T16:30:36Z"
+                         },
+                         {
                              "version":  "1.0.0.6",
                              "changelog":  "Add browser-worker cache sync endpoints and a companion visible browser cache worker.",
                              "targetAbi":  "10.11.0.0",

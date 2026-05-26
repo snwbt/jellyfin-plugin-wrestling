@@ -21,6 +21,7 @@ public class WrestlingController : ControllerBase
     private readonly IMatchCardApplyService _applyService;
     private readonly IWrestlingAutoScanService _scanService;
     private readonly IImportedMatchCacheService _importedCacheService;
+    private readonly IWorkerStatusService _workerStatusService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WrestlingController"/> class.
@@ -29,12 +30,14 @@ public class WrestlingController : ControllerBase
         IWrestlingMatchService matchService,
         IMatchCardApplyService applyService,
         IWrestlingAutoScanService scanService,
-        IImportedMatchCacheService importedCacheService)
+        IImportedMatchCacheService importedCacheService,
+        IWorkerStatusService workerStatusService)
     {
         _matchService = matchService;
         _applyService = applyService;
         _scanService = scanService;
         _importedCacheService = importedCacheService;
+        _workerStatusService = workerStatusService;
     }
 
     /// <summary>
@@ -138,6 +141,33 @@ public class WrestlingController : ControllerBase
     public ActionResult<ImportedCacheStatus> GetCacheStatus()
     {
         return Ok(_importedCacheService.GetStatus());
+    }
+
+    /// <summary>
+    /// Records external browser worker heartbeat.
+    /// </summary>
+    [HttpPost("Worker/Heartbeat")]
+    public ActionResult<WorkerStatus> RecordWorkerHeartbeat([FromBody] WorkerHeartbeatRequest? request)
+    {
+        return Ok(_workerStatusService.RecordHeartbeat(request ?? new WorkerHeartbeatRequest()));
+    }
+
+    /// <summary>
+    /// Gets external browser worker status.
+    /// </summary>
+    [HttpGet("Worker/Status")]
+    public ActionResult<WorkerStatus> GetWorkerStatus()
+    {
+        return Ok(_workerStatusService.GetStatus());
+    }
+
+    /// <summary>
+    /// Gets external browser worker setup command.
+    /// </summary>
+    [HttpGet("Worker/Command")]
+    public ActionResult<WorkerCommandInfo> GetWorkerCommand([FromQuery] string? serverUrl)
+    {
+        return Ok(_workerStatusService.GetCommand(serverUrl));
     }
 
     /// <summary>

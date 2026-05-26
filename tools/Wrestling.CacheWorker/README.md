@@ -20,6 +20,16 @@ CAPTCHA, or Cloudflare-style gates. It does not bypass CageMatch access controls
 .\.dotnet9\dotnet.exe run --project .\tools\Wrestling.CacheWorker -- `
   --jellyfin-url http://localhost:8096 `
   --api-key YOUR_JELLYFIN_API_KEY `
+  --dry-run `
+  --limit 1
+```
+
+For a small real sync:
+
+```powershell
+.\.dotnet9\dotnet.exe run --project .\tools\Wrestling.CacheWorker -- `
+  --jellyfin-url http://localhost:8096 `
+  --api-key YOUR_JELLYFIN_API_KEY `
   --limit 3
 ```
 
@@ -29,3 +39,6 @@ Options:
 - `--remote-debugging-port`: local DevTools port, default `9222`.
 - `--crawl-delay-seconds`: delay between CageMatch page opens, default `527`.
 - `--limit`: maximum queue items to process for a test run.
+- `--cache-path`: local resume/cache file, default `worker-cache.json` beside the worker.
+- `--dry-run`: parse pages and heartbeat status without syncing to Jellyfin.
+- `--force`: revisit already processed items and event ids.

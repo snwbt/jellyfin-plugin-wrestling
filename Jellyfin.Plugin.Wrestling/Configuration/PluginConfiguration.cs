@@ -16,6 +16,7 @@ public class PluginConfiguration : BasePluginConfiguration
     {
         EnableAutomaticLookup = true;
         EnableScheduledScan = false;
+        DataSourceMode = WrestlingDataSourceMode.WorkerCache;
         CrawlDelaySeconds = 527;
         IncludeRatingsInOverview = true;
         LibraryName = "Wrestling PPVs";
@@ -31,6 +32,7 @@ public class PluginConfiguration : BasePluginConfiguration
         LastImportResult = string.Empty;
         LastCacheSyncResult = string.Empty;
         CacheSyncSource = string.Empty;
+        WorkerCommandUrl = string.Empty;
         LastCagematchUrl = string.Empty;
         LastCagematchStatus = string.Empty;
     }
@@ -44,6 +46,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether the scheduled scan task should process selected libraries.
     /// </summary>
     public bool EnableScheduledScan { get; set; }
+
+    /// <summary>
+    /// Gets or sets the match-card data source mode.
+    /// </summary>
+    public string DataSourceMode { get; set; }
 
     /// <summary>
     /// Gets or sets the minimum delay between CageMatch HTTP requests.
@@ -134,6 +141,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the latest external cache sync source.
     /// </summary>
     public string CacheSyncSource { get; set; }
+
+    /// <summary>
+    /// Gets or sets the latest generated worker command URL base.
+    /// </summary>
+    public string WorkerCommandUrl { get; set; }
 
     /// <summary>
     /// Gets or sets when the latest external cache sync happened.
@@ -278,4 +290,25 @@ public class ManualLookupRequest
     /// Gets or sets when this request was recorded.
     /// </summary>
     public DateTime RecordedAtUtc { get; set; }
+}
+
+/// <summary>
+/// Supported match-card data source modes.
+/// </summary>
+public static class WrestlingDataSourceMode
+{
+    /// <summary>
+    /// Use synced browser-worker/imported cache only.
+    /// </summary>
+    public const string WorkerCache = "WorkerCache";
+
+    /// <summary>
+    /// Use live CageMatch HTTP lookup.
+    /// </summary>
+    public const string LiveCagematch = "LiveCagematch";
+
+    /// <summary>
+    /// Use CSV/imported cache only.
+    /// </summary>
+    public const string CsvImport = "CsvImport";
 }

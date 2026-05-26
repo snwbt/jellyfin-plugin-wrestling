@@ -2,171 +2,133 @@
 <html>
 <head>
     <title>Wrestling</title>
-    <style>
-        .wrestlingPage {
-            max-width: 1100px;
-        }
-
-        .wrestlingGrid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin: 1.25em 0;
-        }
-
-        .wrestlingMetric {
-            background: rgba(255, 255, 255, .07);
-            border: 1px solid rgba(255, 255, 255, .12);
-            border-radius: 6px;
-            padding: 12px;
-            min-height: 70px;
-        }
-
-        .wrestlingMetricLabel {
-            display: block;
-            opacity: .75;
-            font-size: .86em;
-            margin-bottom: 8px;
-        }
-
-        .wrestlingMetricValue {
-            display: block;
-            font-size: 1.35em;
-            font-weight: 600;
-            word-break: break-word;
-        }
-
-        .wrestlingBanner {
-            display: none;
-            padding: 12px;
-            border-radius: 6px;
-            margin: 1em 0;
-            background: rgba(183, 28, 28, .28);
-            border: 1px solid rgba(255, 120, 120, .55);
-        }
-
-        .wrestlingLog {
-            min-height: 260px;
-            max-height: 420px;
-            overflow: auto;
-            background: #111;
-            border: 1px solid rgba(255, 255, 255, .18);
-            border-radius: 6px;
-            padding: 10px;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            line-height: 1.45;
-            white-space: pre-wrap;
-        }
-
-        .wrestlingActions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 8px;
-            margin-top: 1em;
-        }
-
-        #SelectedLibraryNames {
-            min-height: 180px;
-        }
-
-        .wrestlingImportRow {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-    </style>
 </head>
 <body>
     <div id="WrestlingConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
         <div data-role="content">
-            <div class="content-primary wrestlingPage">
+            <div class="content-primary">
                 <form id="WrestlingConfigForm">
-                    <div class="inputContainer">
-                        <label class="checkboxContainer">
-                            <input is="emby-checkbox" type="checkbox" id="EnableAutomaticLookup" />
-                            <span>Enable CageMatch title/year lookup</span>
-                        </label>
+                    <h2 class="sectionTitle">Browser Worker Cache</h2>
+                    <p class="fieldDescription">
+                        Recommended mode. Run the visible browser worker on your desktop, let it sync match-card cache here, then apply cached match cards to Jellyfin movies.
+                    </p>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="DataSourceMode">Data source mode</label>
+                        <select is="emby-select" id="DataSourceMode">
+                            <option value="WorkerCache">Browser Worker Cache</option>
+                            <option value="CsvImport">CSV / imported cache only</option>
+                            <option value="LiveCagematch">Advanced live CageMatch lookup</option>
+                        </select>
                     </div>
-                    <div class="inputContainer">
-                        <label class="checkboxContainer">
-                            <input is="emby-checkbox" type="checkbox" id="EnableScheduledScan" />
-                            <span>Enable scheduled background scan</span>
-                        </label>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="SelectedLibraryNames">Libraries to scan</label>
+                        <select is="emby-select" id="SelectedLibraryNames" multiple="multiple" style="min-height: 180px;"></select>
+                        <div class="fieldDescription">Select one or more libraries that contain wrestling PPV movies.</div>
                     </div>
-                    <div class="inputContainer">
-                        <input is="emby-input" type="number" id="CrawlDelaySeconds" min="1" label="CageMatch request delay in seconds" />
-                    </div>
-                    <div class="inputContainer">
-                        <input is="emby-input" type="text" id="UserAgent" label="HTTP user agent" />
-                    </div>
+
                     <div class="inputContainer">
                         <label class="checkboxContainer">
                             <input is="emby-checkbox" type="checkbox" id="IncludeRatingsInOverview" />
                             <span>Include ratings in the match card overview</span>
                         </label>
                     </div>
-                    <div class="selectContainer">
-                        <label class="selectLabel" for="SelectedLibraryNames">Libraries to scan</label>
-                        <select is="emby-select" id="SelectedLibraryNames" multiple="multiple"></select>
-                        <div class="fieldDescription">Select one or more libraries that contain wrestling PPV movies.</div>
+
+                    <h3 class="sectionTitle">Worker Setup</h3>
+                    <div class="inputContainer">
+                        <div><b>Worker connection:</b> <span id="WorkerConnected">Disconnected</span></div>
+                        <div><b>Worker version:</b> <span id="WorkerVersion">-</span></div>
+                        <div><b>Worker state:</b> <span id="WorkerState">-</span></div>
+                        <div><b>Current item:</b> <span id="WorkerCurrentItem">-</span></div>
+                        <div><b>Queue:</b> <span id="WorkerQueue">0 / 0</span></div>
+                        <div><b>Next CageMatch request:</b> <span id="WorkerNextRequest">-</span></div>
+                        <div><b>Last worker URL:</b> <span id="WorkerCurrentUrl">-</span></div>
+                        <div><b>Last worker error:</b> <span id="WorkerLastError">-</span></div>
                     </div>
 
-                    <div id="BlockedBanner" class="wrestlingBanner"></div>
-
-                    <div class="wrestlingGrid">
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">State</span><span id="MetricState" class="wrestlingMetricValue">Idle</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Total</span><span id="MetricTotal" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Queued</span><span id="MetricQueued" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Updated</span><span id="MetricUpdated" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Skipped</span><span id="MetricSkipped" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Failed</span><span id="MetricFailed" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Blocked</span><span id="MetricBlocked" class="wrestlingMetricValue">0</span></div>
+                    <div class="inputContainer">
+                        <div><b>Cache source:</b> <span id="CacheSource">-</span></div>
+                        <div><b>Cached events:</b> <span id="CacheEvents">0</span></div>
+                        <div><b>Cached matches:</b> <span id="CacheMatches">0</span></div>
+                        <div><b>Last cache sync:</b> <span id="CacheLastSync">-</span></div>
                     </div>
 
-                    <div class="wrestlingGrid">
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Current item</span><span id="MetricCurrentItem" class="wrestlingMetricValue">-</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Last CageMatch status</span><span id="MetricCagematchStatus" class="wrestlingMetricValue">-</span></div>
+                    <div class="inputContainer">
+                        <a id="WorkerDownload" is="emby-linkbutton" class="button-link emby-button" target="_blank" href="#">
+                            <span>Download browser worker</span>
+                        </a>
                     </div>
 
-                    <div class="wrestlingGrid">
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Cache source</span><span id="MetricCacheSource" class="wrestlingMetricValue">-</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Cached events</span><span id="MetricCacheEvents" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Cached matches</span><span id="MetricCacheMatches" class="wrestlingMetricValue">0</span></div>
-                        <div class="wrestlingMetric"><span class="wrestlingMetricLabel">Last cache sync</span><span id="MetricCacheSync" class="wrestlingMetricValue">-</span></div>
+                    <div class="inputContainer">
+                        <label class="inputLabel">Suggested worker command</label>
+                        <pre id="WorkerCommand" style="white-space: pre-wrap; overflow: auto; max-height: 180px; padding: 12px; background: #111; border: 1px solid #444;">Loading...</pre>
+                        <div class="fieldDescription">Create a Jellyfin API key in Dashboard > API Keys, replace YOUR_JELLYFIN_API_KEY, then run this command from the extracted worker folder.</div>
+                    </div>
+
+                    <details class="inputContainer">
+                        <summary>Advanced live CageMatch lookup</summary>
+                        <div class="fieldDescription">
+                            Use only if your Jellyfin server can access CageMatch directly. Worker/cache mode avoids live server-side CageMatch requests.
+                        </div>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="EnableAutomaticLookup" />
+                            <span>Enable CageMatch title/year lookup</span>
+                        </label>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="EnableScheduledScan" />
+                            <span>Enable scheduled background scan</span>
+                        </label>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="number" id="CrawlDelaySeconds" min="1" label="CageMatch request delay in seconds" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="UserAgent" label="HTTP user agent" />
+                        </div>
+                    </details>
+
+                    <h3 class="sectionTitle">Apply Status</h3>
+                    <div id="BlockedBanner" class="fieldDescription" style="display: none; padding: 12px; border: 1px solid #b66; background: rgba(160, 0, 0, .2);"></div>
+                    <div class="inputContainer">
+                        <div><b>State:</b> <span id="MetricState">Idle</span></div>
+                        <div><b>Total:</b> <span id="MetricTotal">0</span></div>
+                        <div><b>Queued:</b> <span id="MetricQueued">0</span></div>
+                        <div><b>Updated:</b> <span id="MetricUpdated">0</span></div>
+                        <div><b>Skipped:</b> <span id="MetricSkipped">0</span></div>
+                        <div><b>Failed:</b> <span id="MetricFailed">0</span></div>
+                        <div><b>Blocked:</b> <span id="MetricBlocked">0</span></div>
+                        <div><b>Current item:</b> <span id="MetricCurrentItem">-</span></div>
+                        <div><b>Last CageMatch status:</b> <span id="MetricCagematchStatus">-</span></div>
                     </div>
 
                     <div class="inputContainer">
                         <label class="inputLabel">Queue log</label>
-                        <div id="ScanLog" class="wrestlingLog"></div>
+                        <pre id="ScanLog" style="white-space: pre-wrap; overflow: auto; max-height: 360px; min-height: 180px; padding: 12px; background: #111; border: 1px solid #444;"></pre>
                     </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel">Unresolved lookups</label>
-                        <div id="PendingManualLookups" class="wrestlingLog"></div>
+                    <div class="inputContainer" id="UnresolvedContainer">
+                        <label class="inputLabel">Unresolved live lookups</label>
+                        <pre id="PendingManualLookups" style="white-space: pre-wrap; overflow: auto; max-height: 260px; min-height: 100px; padding: 12px; background: #111; border: 1px solid #444;"></pre>
                     </div>
 
                     <div class="inputContainer">
                         <label class="inputLabel">Import CSV cache</label>
-                        <div class="wrestlingImportRow">
-                            <input type="file" id="CacheCsvFile" accept=".csv,text/csv" />
-                            <button is="emby-button" type="button" id="ImportCache" class="raised">
-                                <span>Import cache</span>
-                            </button>
-                        </div>
+                        <input type="file" id="CacheCsvFile" accept=".csv,text/csv" />
+                        <button is="emby-button" type="button" id="ImportCache" class="raised">
+                            <span>Import cache</span>
+                        </button>
                         <div id="ImportStatus" class="fieldDescription"></div>
                     </div>
 
-                    <div class="wrestlingActions">
+                    <div class="inputContainer">
                         <button is="emby-button" type="submit" class="raised button-submit">
                             <span>Save</span>
                         </button>
                         <button is="emby-button" type="button" id="ScanNow" class="raised">
-                            <span>Scan now</span>
+                            <span id="ScanNowText">Apply cached match cards</span>
                         </button>
                         <button is="emby-button" type="button" id="CancelScan" class="raised">
-                            <span>Cancel scan</span>
+                            <span>Cancel apply</span>
                         </button>
                         <button is="emby-button" type="button" id="RefreshStatus" class="raised">
                             <span>Refresh status</span>
@@ -190,13 +152,16 @@
                     ApiClient.getPluginConfiguration(WrestlingConfig.pluginId),
                     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Libraries'), dataType: 'json' }),
                     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Status'), dataType: 'json' }),
-                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Cache/Status'), dataType: 'json' })
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Cache/Status'), dataType: 'json' }),
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Worker/Status'), dataType: 'json' }),
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Worker/Command?serverUrl=' + encodeURIComponent(window.location.origin)), dataType: 'json' })
                 ]).then(function (responses) {
                     loadConfig(responses[0]);
                     loadLibraries(responses[1] || [], responses[0]);
                     renderStatus(responses[2] || {});
                     renderCacheStatus(responses[3] || {});
-                    document.querySelector('#ImportStatus').textContent = responses[0].LastImportResult || responses[0].lastImportResult || '';
+                    renderWorkerStatus(responses[4] || {});
+                    renderWorkerCommand(responses[5] || {});
                     Dashboard.hideLoadingMsg();
                     startPolling();
                 }).catch(function (err) {
@@ -208,6 +173,8 @@
             document.querySelector('#WrestlingConfigPage').addEventListener('pagehide', function () {
                 stopPolling();
             });
+
+            document.querySelector('#DataSourceMode').addEventListener('change', updateModeUi);
 
             document.querySelector('#WrestlingConfigForm').addEventListener('submit', function (event) {
                 event.preventDefault();
@@ -230,7 +197,7 @@
                     Dashboard.hideLoadingMsg();
                     startPolling();
                 }).catch(function (err) {
-                    renderError('Failed to start Wrestling scan', err);
+                    renderError('Failed to apply Wrestling match cards', err);
                     Dashboard.hideLoadingMsg();
                 });
             });
@@ -244,7 +211,7 @@
             });
 
             document.querySelector('#RefreshStatus').addEventListener('click', function () {
-                refreshStatus();
+                refreshAllStatus();
             });
 
             document.querySelector('#ImportCache').addEventListener('click', function () {
@@ -274,14 +241,15 @@
             });
 
             function loadConfig(config) {
+                document.querySelector('#DataSourceMode').value = config.DataSourceMode || config.dataSourceMode || 'WorkerCache';
                 document.querySelector('#EnableAutomaticLookup').checked = config.EnableAutomaticLookup !== false;
                 document.querySelector('#EnableScheduledScan').checked = config.EnableScheduledScan === true;
                 document.querySelector('#CrawlDelaySeconds').value = config.CrawlDelaySeconds || 527;
                 document.querySelector('#UserAgent').value = config.UserAgent || 'Jellyfin.Plugin.Wrestling/1.0';
                 document.querySelector('#IncludeRatingsInOverview').checked = config.IncludeRatingsInOverview !== false;
-                document.querySelector('#PendingManualLookups').textContent = (config.PendingManualLookups || []).map(function (item) {
-                    return [item.Name || item.name || '', item.Year || item.year || '', item.PremiereDate || item.premiereDate || '', item.Reason || item.reason || ''].join(' | ');
-                }).join('\n') || 'No unresolved lookups.';
+                renderPendingLookups(config.PendingManualLookups || config.pendingManualLookups || []);
+                document.querySelector('#ImportStatus').textContent = config.LastImportResult || config.lastImportResult || config.LastCacheSyncResult || config.lastCacheSyncResult || '';
+                updateModeUi();
             }
 
             function loadLibraries(libraries, config) {
@@ -303,6 +271,7 @@
 
             function saveConfig() {
                 return ApiClient.getPluginConfiguration(WrestlingConfig.pluginId).then(function (config) {
+                    config.DataSourceMode = document.querySelector('#DataSourceMode').value || 'WorkerCache';
                     config.EnableAutomaticLookup = document.querySelector('#EnableAutomaticLookup').checked;
                     config.EnableScheduledScan = document.querySelector('#EnableScheduledScan').checked;
                     config.CrawlDelaySeconds = parseInt(document.querySelector('#CrawlDelaySeconds').value || '527', 10);
@@ -327,6 +296,10 @@
                 });
             }
 
+            function refreshAllStatus() {
+                return Promise.all([refreshStatus(), refreshCacheStatus(), refreshWorkerStatus()]);
+            }
+
             function refreshStatus() {
                 return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Status'), dataType: 'json' }).then(function (result) {
                     renderStatus(result || {});
@@ -345,19 +318,21 @@
                 });
             }
 
+            function refreshWorkerStatus() {
+                return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Wrestling/Worker/Status'), dataType: 'json' }).then(function (result) {
+                    renderWorkerStatus(result || {});
+                    return result;
+                }).catch(function (err) {
+                    document.querySelector('#WorkerLastError').textContent = formatError('Failed to refresh worker status', err);
+                });
+            }
+
             function startPolling() {
                 if (WrestlingConfig.pollHandle) {
                     return;
                 }
 
-                WrestlingConfig.pollHandle = setInterval(function () {
-                    refreshStatus().then(function (status) {
-                        var state = get(status, 'ScanState') || get(status, 'scanState');
-                        if (!status || ['Running', 'Queued'].indexOf(state) === -1) {
-                            stopPolling();
-                        }
-                    });
-                }, 5000);
+                WrestlingConfig.pollHandle = setInterval(refreshAllStatus, 5000);
             }
 
             function stopPolling() {
@@ -420,14 +395,49 @@
             }
 
             function renderCacheStatus(status) {
-                setText('#MetricCacheSource', get(status, 'Source') || '-');
-                setText('#MetricCacheEvents', get(status, 'ImportedEvents') || 0);
-                setText('#MetricCacheMatches', get(status, 'ImportedMatches') || 0);
-                setText('#MetricCacheSync', get(status, 'LastSyncUtc') || '-');
+                setText('#CacheSource', get(status, 'Source') || '-');
+                setText('#CacheEvents', get(status, 'ImportedEvents') || 0);
+                setText('#CacheMatches', get(status, 'ImportedMatches') || 0);
+                setText('#CacheLastSync', get(status, 'LastSyncUtc') || '-');
                 var syncResult = get(status, 'LastSyncResult') || get(status, 'LastImportResult') || '';
                 if (syncResult) {
                     document.querySelector('#ImportStatus').textContent = syncResult;
                 }
+            }
+
+            function renderWorkerStatus(status) {
+                setText('#WorkerConnected', get(status, 'IsConnected') ? 'Connected' : 'Disconnected');
+                setText('#WorkerVersion', get(status, 'WorkerVersion') || '-');
+                setText('#WorkerState', get(status, 'State') || '-');
+                setText('#WorkerCurrentItem', get(status, 'CurrentItem') || '-');
+                setText('#WorkerQueue', (get(status, 'Processed') || 0) + ' / ' + (get(status, 'Total') || 0) + ' processed, ' + (get(status, 'Skipped') || 0) + ' skipped, ' + (get(status, 'Failed') || 0) + ' failed');
+                setText('#WorkerNextRequest', get(status, 'NextAllowedRequestUtc') || '-');
+                setText('#WorkerCurrentUrl', get(status, 'CurrentUrl') || '-');
+                setText('#WorkerLastError', get(status, 'LastError') || '-');
+            }
+
+            function renderWorkerCommand(info) {
+                var command = get(info, 'Command') || '';
+                var url = get(info, 'WorkerDownloadUrl') || '#';
+                document.querySelector('#WorkerCommand').textContent = command || 'Worker command unavailable.';
+                document.querySelector('#WorkerDownload').href = url;
+            }
+
+            function renderPendingLookups(items) {
+                document.querySelector('#PendingManualLookups').textContent = (items || []).map(function (item) {
+                    return [
+                        item.Name || item.name || '',
+                        item.Year || item.year || '',
+                        item.PremiereDate || item.premiereDate || '',
+                        item.Reason || item.reason || ''
+                    ].join(' | ');
+                }).join('\n') || 'No unresolved live lookups.';
+            }
+
+            function updateModeUi() {
+                var mode = document.querySelector('#DataSourceMode').value || 'WorkerCache';
+                document.querySelector('#ScanNowText').textContent = mode === 'LiveCagematch' ? 'Scan with live CageMatch' : 'Apply cached match cards';
+                document.querySelector('#UnresolvedContainer').style.display = mode === 'LiveCagematch' ? 'block' : 'none';
             }
 
             function renderError(message, err) {

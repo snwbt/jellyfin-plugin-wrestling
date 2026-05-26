@@ -1,7 +1,7 @@
 ---
 name: "Wrestling"
 guid: "89e3cfaf-ef94-4dd5-9134-bab43eaf993d"
-version: "1.0.0.6"
+version: "1.0.0.7"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Adds spoiler-safe wrestling match cards to pay-per-view movie pages."
@@ -14,4 +14,4 @@ owner: "local"
 artifacts:
 - "Jellyfin.Plugin.Wrestling.dll"
 changelog: >
-  Add browser-worker cache sync endpoints and a companion visible browser cache worker.
+  Make browser-worker cache the default workflow with worker heartbeat, resume cache, and clearer settings.

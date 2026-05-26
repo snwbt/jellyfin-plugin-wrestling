@@ -19,6 +19,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IWrestlingMatchCache, WrestlingMatchCache>();
         serviceCollection.AddSingleton<IWrestlingMatchService, WrestlingMatchService>();
         serviceCollection.AddSingleton<IImportedMatchCacheService, ImportedMatchCacheService>();
+        serviceCollection.AddSingleton<IWorkerStatusService, WorkerStatusService>();
         serviceCollection.AddSingleton<IMatchCardApplyService, MatchCardApplyService>();
         serviceCollection.AddSingleton<IWrestlingAutoScanService, WrestlingAutoScanService>();
         serviceCollection.AddSingleton<IScheduledTask, WrestlingScanScheduledTask>();

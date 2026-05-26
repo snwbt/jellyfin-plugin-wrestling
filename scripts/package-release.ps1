@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Repo,
 
-    [string]$Version = "1.0.0.6",
+    [string]$Version = "1.0.0.7",
     [string]$TargetAbi = "10.11.0.0",
     [string]$Configuration = "Release",
 
@@ -95,7 +95,7 @@ else {
 
 $newVersion = [ordered]@{
     version = $Version
-    changelog = "Add browser-worker cache sync endpoints and a companion visible browser cache worker."
+    changelog = "Make browser-worker cache the default workflow with worker heartbeat, resume cache, and clearer settings."
     targetAbi = $TargetAbi
     sourceUrl = $sourceUrl
     checksum = $checksum

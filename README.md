@@ -26,7 +26,9 @@ Install or upgrade the Wrestling plugin, then restart Jellyfin.
 ## Automatic CageMatch Scan
 
 Open the Wrestling plugin settings, select one or more Jellyfin libraries from
-**Libraries to scan**, then click **Scan now**.
+**Libraries to scan**, then click **Apply cached match cards**. The default data
+source is Browser Worker Cache, so scans use synced/imported cache and do not call
+CageMatch directly.
 
 The scanner searches CageMatch by movie title, production year, and premiere date,
 chooses the best-scoring event candidate, fetches the event page, caches the match
@@ -60,12 +62,15 @@ crawl delay, parses event pages, and syncs normalized match cards back to the pl
 .\.dotnet9\dotnet.exe run --project .\tools\Wrestling.CacheWorker -- `
   --jellyfin-url http://localhost:8096 `
   --api-key YOUR_JELLYFIN_API_KEY `
-  --limit 3
+  --dry-run `
+  --limit 1
 ```
 
-Remove `--limit` for the full queue. The worker stops if CageMatch shows a forbidden,
-login, JavaScript, CAPTCHA, or Cloudflare-style gate. It does not spoof sessions,
-solve challenges, rotate IPs, or bypass access controls.
+Use `--limit 3` for a small real sync, then remove `--limit` for the full queue.
+The worker stores progress in `worker-cache.json`, resumes after restart, skips
+already-synced events unless `--force` is passed, and stops if CageMatch shows a
+forbidden, login, JavaScript, CAPTCHA, or Cloudflare-style gate. It does not spoof
+sessions, solve challenges, rotate IPs, or bypass access controls.
 
 ## Scheduled Scan
 
